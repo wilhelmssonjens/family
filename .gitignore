@@ -30,3 +30,4 @@ dist-ssr
 .env
 .playwright-mcp/
 image.png
+.vercel

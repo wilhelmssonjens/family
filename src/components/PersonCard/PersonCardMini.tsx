@@ -41,12 +41,17 @@ export function PersonCardMini({ person, x, y, isExpanded, onClick, onAdd }: Pro
         stroke={isExpanded ? '#4a7050' : '#6b8f71'}
         strokeWidth={isExpanded ? 2.5 : 1.5}
         filter="url(#shadow)"
+        onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => { e.stopPropagation(); onClick() }}
         style={{ cursor: 'pointer' }}
       />
 
       {/* Click target over content */}
-      <g onClick={(e) => { e.stopPropagation(); onClick() }} style={{ cursor: 'pointer' }}>
+      <g
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => { e.stopPropagation(); onClick() }}
+        style={{ cursor: 'pointer' }}
+      >
         <circle cx={CARD_WIDTH / 2} cy={24} r={16} fill="#eee8dc" stroke="#6b8f71" strokeWidth={1} />
         <text
           x={CARD_WIDTH / 2}
@@ -85,16 +90,16 @@ export function PersonCardMini({ person, x, y, isExpanded, onClick, onAdd }: Pro
       </g>
 
       {onAdd && (
-        <g className="add-buttons" opacity={0}>
-          <g transform={`translate(${-16}, ${CARD_HEIGHT / 2 - 10})`} onClick={(e) => { e.stopPropagation(); onAdd('parent') }} style={{ cursor: 'pointer' }}>
+        <g className="add-buttons" opacity={isExpanded ? 1 : 0} style={isExpanded ? { pointerEvents: 'all' } : undefined}>
+          <g transform={`translate(${-16}, ${CARD_HEIGHT / 2 - 10})`} onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onAdd('parent') }} style={{ cursor: 'pointer' }}>
             <circle r={10} fill="#6b8f71" opacity={0.8} />
             <text textAnchor="middle" dy={4} fill="white" fontSize={14} fontFamily="sans-serif">+</text>
           </g>
-          <g transform={`translate(${CARD_WIDTH / 2}, ${CARD_HEIGHT + 10})`} onClick={(e) => { e.stopPropagation(); onAdd('sibling') }} style={{ cursor: 'pointer' }}>
+          <g transform={`translate(${CARD_WIDTH / 2}, ${CARD_HEIGHT + 10})`} onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onAdd('sibling') }} style={{ cursor: 'pointer' }}>
             <circle r={10} fill="#6b8f71" opacity={0.8} />
             <text textAnchor="middle" dy={4} fill="white" fontSize={14} fontFamily="sans-serif">+</text>
           </g>
-          <g transform={`translate(${CARD_WIDTH + 16}, ${CARD_HEIGHT / 2 - 10})`} onClick={(e) => { e.stopPropagation(); onAdd('partner') }} style={{ cursor: 'pointer' }}>
+          <g transform={`translate(${CARD_WIDTH + 16}, ${CARD_HEIGHT / 2 - 10})`} onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onAdd('partner') }} style={{ cursor: 'pointer' }}>
             <circle r={10} fill="#c4a77d" opacity={0.8} />
             <text textAnchor="middle" dy={4} fill="white" fontSize={14} fontFamily="sans-serif">+</text>
           </g>

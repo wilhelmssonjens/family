@@ -127,7 +127,7 @@ export function TreeView({ persons, relationships, centerId, onPersonClick, onAd
             />
           ))}
 
-          {/* Expanded card rendered inside the SVG transform group so it follows pan/zoom */}
+          {/* Expanded card rendered inside the SVG transform group so it follows pan/zoom (desktop only) */}
           {expandedNode && expandedCardContent && (
             <foreignObject
               x={expandedNode.x - 150}
@@ -135,6 +135,7 @@ export function TreeView({ persons, relationships, centerId, onPersonClick, onAd
               width={320}
               height={300}
               style={{ overflow: 'visible' }}
+              className="hidden md:block"
             >
               {/* eslint-disable-next-line */}
               <div onClick={(e: React.MouseEvent) => e.stopPropagation()}>

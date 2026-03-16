@@ -58,6 +58,18 @@ function TreePage() {
     setAddFormState(null)
   }
 
+  const expandedCardElement = expandedPerson ? (
+    <PersonCardExpanded
+      person={expandedPerson}
+      relationLabel={getRelationLabel(graph, expandedPerson.id, persons)}
+      onClose={handleClose}
+      onEdit={() => {
+        setAddFormState({ relationType: 'edit', relatedToId: expandedPerson.id })
+        setExpandedPersonId(null)
+      }}
+    />
+  ) : null
+
   return (
     <div className="flex-1 relative overflow-hidden" onClick={handleClose}>
       <TreeView
@@ -73,18 +85,24 @@ function TreePage() {
           setExpandedPersonId(null)
         }}
         expandedPersonId={expandedPersonId}
-        expandedCardContent={expandedPerson ? (
-          <PersonCardExpanded
-            person={expandedPerson}
-            relationLabel={getRelationLabel(graph, expandedPerson.id, persons)}
-            onClose={handleClose}
-            onEdit={() => {
-              setAddFormState({ relationType: 'edit', relatedToId: expandedPerson.id })
-              setExpandedPersonId(null)
-            }}
-          />
-        ) : undefined}
+        expandedCardContent={expandedCardElement}
       />
+
+      {/* Mobile overlay for expanded person card */}
+      {expandedCardElement && (
+        <div
+          className="md:hidden fixed inset-0 z-30 flex items-end justify-center"
+          onClick={handleClose}
+        >
+          <div className="absolute inset-0 bg-black/20" />
+          <div
+            className="relative w-full max-w-sm mx-4 mb-4 animate-in"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {expandedCardElement}
+          </div>
+        </div>
+      )}
 
       {addFormState && (
         <div className="absolute top-4 left-4 z-10" onClick={(e) => e.stopPropagation()}>

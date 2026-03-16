@@ -7,6 +7,7 @@ vi.mock('d3-zoom', () => ({
   zoom: () => {
     const zoomBehavior: any = () => {};
     zoomBehavior.scaleExtent = () => zoomBehavior;
+    zoomBehavior.filter = () => zoomBehavior;
     zoomBehavior.on = () => zoomBehavior;
     zoomBehavior.transform = () => zoomBehavior;
     return zoomBehavior;

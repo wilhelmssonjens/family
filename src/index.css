@@ -22,3 +22,14 @@
 .animate-in {
   animation: animate-in 0.2s ease-out;
 }
+
+/* Show "+" buttons only on hover */
+.person-card-group .add-buttons {
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
+.person-card-group:hover .add-buttons {
+  opacity: 1 !important;
+  pointer-events: all;
+}

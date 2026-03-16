@@ -21,8 +21,9 @@ export function PersonCardMini({ person, x, y, isExpanded, onClick, onAdd }: Pro
   return (
     <g
       transform={`translate(${x - CARD_WIDTH / 2}, ${y - CARD_HEIGHT / 2})`}
-      onClick={onClick}
+      onClick={(e) => { e.stopPropagation(); onClick() }}
       style={{ cursor: 'pointer' }}
+      className="person-card-group"
     >
       <rect
         width={CARD_WIDTH}
@@ -71,7 +72,7 @@ export function PersonCardMini({ person, x, y, isExpanded, onClick, onAdd }: Pro
       </text>
 
       {onAdd && (
-        <>
+        <g className="add-buttons" opacity={0}>
           <g transform={`translate(${-16}, ${CARD_HEIGHT / 2 - 10})`} onClick={(e) => { e.stopPropagation(); onAdd('parent') }} style={{ cursor: 'pointer' }}>
             <circle r={10} fill="#6b8f71" opacity={0.8} />
             <text textAnchor="middle" dy={4} fill="white" fontSize={14} fontFamily="sans-serif">+</text>
@@ -84,7 +85,7 @@ export function PersonCardMini({ person, x, y, isExpanded, onClick, onAdd }: Pro
             <circle r={10} fill="#c4a77d" opacity={0.8} />
             <text textAnchor="middle" dy={4} fill="white" fontSize={14} fontFamily="sans-serif">+</text>
           </g>
-        </>
+        </g>
       )}
     </g>
   )

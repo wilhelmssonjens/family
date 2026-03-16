@@ -14,9 +14,9 @@ export interface LayoutNode {
   links: LayoutLink[]
 }
 
-const HORIZONTAL_GAP = 200
+const HORIZONTAL_GAP = 320
 const VERTICAL_GAP = 140
-const PARTNER_GAP = 80
+const PARTNER_GAP = 150
 
 export function computeTreeLayout(
   persons: Person[],

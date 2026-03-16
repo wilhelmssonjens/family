@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from 'react'
+import { useRef, useEffect, useState, useCallback } from 'react'
 import { select } from 'd3-selection'
 import { zoom, zoomIdentity, type ZoomBehavior } from 'd3-zoom'
 import { computeTreeLayout } from './TreeLayout'
@@ -19,15 +19,28 @@ export function TreeView({ persons, relationships, centerId, onPersonClick, onAd
   const svgRef = useRef<SVGSVGElement>(null)
   const gRef = useRef<SVGGElement>(null)
   const [transform, setTransform] = useState({ x: 0, y: 0, k: 1 })
+  const [dimensions, setDimensions] = useState({ width: 800, height: 600 })
 
   const nodes = computeTreeLayout(persons, relationships, centerId)
 
   useEffect(() => {
-    if (!svgRef.current || !gRef.current) return
+    if (!svgRef.current) return
 
     const svgEl = select(svgRef.current)
+    const width = svgRef.current.clientWidth
+    const height = svgRef.current.clientHeight
+    setDimensions({ width, height })
+
     const zoomBehavior: ZoomBehavior<SVGSVGElement, unknown> = zoom<SVGSVGElement, unknown>()
-      .scaleExtent([0.2, 3])
+      .scaleExtent([0.3, 3])
+      .filter((event) => {
+        // Allow all scroll/wheel events for zoom
+        // For mouse events, only allow if it's not a click on a card
+        if (event.type === 'wheel') return true
+        if (event.type === 'dblclick') return true
+        // Allow drag (mousedown) but only when not on a card element
+        return event.type === 'mousedown' || event.type === 'touchstart'
+      })
       .on('zoom', (event) => {
         setTransform({
           x: event.transform.x,
@@ -38,11 +51,10 @@ export function TreeView({ persons, relationships, centerId, onPersonClick, onAd
 
     svgEl.call(zoomBehavior)
 
-    const width = svgRef.current.clientWidth
-    const height = svgRef.current.clientHeight
+    // Center the view with a good zoom level
     svgEl.call(
       zoomBehavior.transform,
-      zoomIdentity.translate(width / 2, height / 2).scale(0.8),
+      zoomIdentity.translate(width / 2, height / 2).scale(1),
     )
 
     return () => {
@@ -50,6 +62,7 @@ export function TreeView({ persons, relationships, centerId, onPersonClick, onAd
     }
   }, [])
 
+  // Build links for rendering
   const links: Array<{ x1: number; y1: number; x2: number; y2: number; type: string }> = []
   for (const node of nodes) {
     for (const link of node.links) {
@@ -64,8 +77,34 @@ export function TreeView({ persons, relationships, centerId, onPersonClick, onAd
     }
   }
 
-  const svgWidth = svgRef.current?.clientWidth ?? 800
-  const svgHeight = svgRef.current?.clientHeight ?? 600
+  // Create curved path for parent-child links
+  const renderLink = useCallback((link: typeof links[0], i: number) => {
+    if (link.type === 'partner') {
+      // Dashed line for partners
+      return (
+        <line
+          key={`link-${i}`}
+          x1={link.x1} y1={link.y1}
+          x2={link.x2} y2={link.y2}
+          stroke="#c4a77d"
+          strokeWidth={2}
+          strokeDasharray="6,4"
+        />
+      )
+    }
+
+    // Curved path for parent-child
+    const midX = (link.x1 + link.x2) / 2
+    return (
+      <path
+        key={`link-${i}`}
+        d={`M ${link.x1} ${link.y1} C ${midX} ${link.y1}, ${midX} ${link.y2}, ${link.x2} ${link.y2}`}
+        fill="none"
+        stroke="#aaa"
+        strokeWidth={1.5}
+      />
+    )
+  }, [])
 
   return (
     <div className="relative w-full h-full">
@@ -76,17 +115,10 @@ export function TreeView({ persons, relationships, centerId, onPersonClick, onAd
           </filter>
         </defs>
         <g ref={gRef} transform={`translate(${transform.x}, ${transform.y}) scale(${transform.k})`}>
-          {links.map((link, i) => (
-            <line
-              key={i}
-              x1={link.x1} y1={link.y1}
-              x2={link.x2} y2={link.y2}
-              stroke={link.type === 'partner' ? '#c4a77d' : '#aaa'}
-              strokeWidth={1.5}
-              strokeDasharray={link.type === 'partner' ? '4,4' : undefined}
-            />
-          ))}
+          {/* Links rendered behind cards */}
+          {links.map((link, i) => renderLink(link, i))}
 
+          {/* Person cards */}
           {nodes.map((node) => (
             <PersonCardMini
               key={node.personId}
@@ -104,8 +136,8 @@ export function TreeView({ persons, relationships, centerId, onPersonClick, onAd
         nodes={nodes}
         viewportX={transform.x}
         viewportY={transform.y}
-        viewportWidth={svgWidth}
-        viewportHeight={svgHeight}
+        viewportWidth={dimensions.width}
+        viewportHeight={dimensions.height}
         scale={transform.k}
       />
     </div>

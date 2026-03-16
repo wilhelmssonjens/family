@@ -2822,7 +2822,7 @@ Update `src/App.tsx` to import and use `SearchView`, `GalleryView`, and integrat
 
 ```tsx
 import { BrowserRouter, Routes, Route, useParams } from 'react-router-dom'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { FamilyDataProvider, useFamilyData } from './contexts/FamilyDataContext'
 import { Header } from './components/Layout/Header'
 import { TreeView } from './components/Tree/TreeView'
@@ -2830,6 +2830,8 @@ import { PersonCardExpanded } from './components/PersonCard/PersonCardExpanded'
 import { AddPersonForm, type AddPersonData } from './components/AddForm/AddPersonForm'
 import { SearchView } from './components/Search/SearchView'
 import { GalleryView } from './components/Gallery/GalleryView'
+import { buildFamilyGraph } from './utils/buildTree'
+import { getRelationLabel } from './utils/formatPerson'
 
 function TreePage() {
   const { id } = useParams()

@@ -31,3 +31,7 @@ dist-ssr
 .playwright-mcp/
 image.png
 .vercel
+
+# Source material images
+*.jpg
+image copy.png

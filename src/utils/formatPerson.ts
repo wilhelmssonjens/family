@@ -33,7 +33,9 @@ export function formatFullName(
 }
 
 export function getInitials(firstName: string, lastName: string): string {
-  return `${firstName[0]}${lastName[0]}`.toUpperCase()
+  const first = firstName?.[0] ?? ''
+  const last = lastName?.[0] ?? ''
+  return `${first}${last}`.toUpperCase()
 }
 
 export function getRelationLabel(

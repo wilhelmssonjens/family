@@ -18,9 +18,17 @@ export function PersonCardExpanded({ person, relationLabel, onClose, onEdit }: P
 
   return (
     <div
-      className="bg-card-bg border-l-4 border-card-border rounded-lg shadow-md p-4 max-w-xs animate-in"
+      className="relative bg-card-bg border-l-4 border-card-border rounded-lg shadow-md p-4 pr-8 max-w-xs animate-in"
       onClick={(e) => e.stopPropagation()}
     >
+      {/* Close button */}
+      <button
+        onClick={onClose}
+        className="absolute top-2 right-2 w-6 h-6 flex items-center justify-center rounded-full text-text-secondary hover:bg-bg-secondary hover:text-text-primary transition-colors text-sm"
+      >
+        ✕
+      </button>
+
       <div className="flex items-start gap-3 mb-3">
         <div className="w-14 h-14 rounded-lg bg-bg-secondary border border-card-border flex items-center justify-center flex-shrink-0">
           {person.photos.length > 0 ? (

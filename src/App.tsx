@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, useParams } from 'react-router-dom'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { FamilyDataProvider, useFamilyData } from './contexts/FamilyDataContext'
 import { Header } from './components/Layout/Header'
 import { TreeView } from './components/Tree/TreeView'
@@ -14,10 +14,31 @@ function TreePage() {
   const { id } = useParams()
   const { persons, relationships, loading, error } = useFamilyData()
   const [expandedPersonId, setExpandedPersonId] = useState<string | null>(null)
+  const [popupPos, setPopupPos] = useState<{ x: number; y: number } | null>(null)
   const [addFormState, setAddFormState] = useState<{ relationType: string; relatedToId: string } | null>(null)
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle')
+  const popupRef = useRef<HTMLDivElement>(null)
 
   const graph = useMemo(() => buildFamilyGraph(persons, relationships), [persons, relationships])
+
+  // Clamp popup position so it doesn't go off-screen
+  useEffect(() => {
+    if (!popupRef.current || !popupPos) return
+    const rect = popupRef.current.getBoundingClientRect()
+    const parent = popupRef.current.parentElement?.getBoundingClientRect()
+    if (!parent) return
+
+    let { x, y } = popupPos
+    // Keep within bounds
+    if (x + rect.width > parent.width) x = parent.width - rect.width - 8
+    if (x < 8) x = 8
+    if (y < 8) y = 8
+    if (y + rect.height > parent.height) y = parent.height - rect.height - 8
+
+    if (x !== popupPos.x || y !== popupPos.y) {
+      setPopupPos({ x, y })
+    }
+  }, [popupPos])
 
   if (loading) return <div className="flex-1 flex items-center justify-center font-sans text-text-secondary">Laddar...</div>
   if (error) return (
@@ -49,32 +70,51 @@ function TreePage() {
     }
   }
 
+  function handleClose() {
+    setExpandedPersonId(null)
+    setPopupPos(null)
+    setAddFormState(null)
+  }
+
   return (
-    <div className="flex-1 relative" onClick={() => { setExpandedPersonId(null); setAddFormState(null) }}>
+    <div className="flex-1 relative overflow-hidden" onClick={handleClose}>
       <TreeView
         persons={persons}
         relationships={relationships}
         centerId={centerId}
-        onPersonClick={(pid) => {
-          setExpandedPersonId(prev => prev === pid ? null : pid)
-          setAddFormState(null)
+        onPersonClick={(pid, screenPos) => {
+          if (expandedPersonId === pid) {
+            handleClose()
+          } else {
+            setExpandedPersonId(pid)
+            // Position popup above the card
+            setPopupPos({ x: screenPos.x - 140, y: screenPos.y - 260 })
+            setAddFormState(null)
+          }
         }}
         onAdd={(personId, relationType) => {
           setAddFormState({ relationType, relatedToId: personId })
           setExpandedPersonId(null)
+          setPopupPos(null)
         }}
         expandedPersonId={expandedPersonId}
       />
 
-      {expandedPerson && (
-        <div className="absolute top-4 left-4 z-10" onClick={(e) => e.stopPropagation()}>
+      {expandedPerson && popupPos && (
+        <div
+          ref={popupRef}
+          className="absolute z-10 animate-in"
+          style={{ left: popupPos.x, top: popupPos.y }}
+          onClick={(e) => e.stopPropagation()}
+        >
           <PersonCardExpanded
             person={expandedPerson}
             relationLabel={getRelationLabel(graph, expandedPerson.id, persons)}
-            onClose={() => setExpandedPersonId(null)}
+            onClose={handleClose}
             onEdit={() => {
               setAddFormState({ relationType: 'edit', relatedToId: expandedPerson.id })
               setExpandedPersonId(null)
+              setPopupPos(null)
             }}
           />
         </div>

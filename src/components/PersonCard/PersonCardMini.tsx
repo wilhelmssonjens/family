@@ -21,10 +21,18 @@ export function PersonCardMini({ person, x, y, isExpanded, onClick, onAdd }: Pro
   return (
     <g
       transform={`translate(${x - CARD_WIDTH / 2}, ${y - CARD_HEIGHT / 2})`}
-      onClick={(e) => { e.stopPropagation(); onClick() }}
-      style={{ cursor: 'pointer' }}
       className="person-card-group"
     >
+      {/* Invisible expanded hit area so hover stays active when moving to "+" buttons */}
+      <rect
+        x={-26}
+        y={-10}
+        width={CARD_WIDTH + 52}
+        height={CARD_HEIGHT + 30}
+        fill="transparent"
+      />
+
+      {/* Card background */}
       <rect
         width={CARD_WIDTH}
         height={CARD_HEIGHT}
@@ -33,43 +41,48 @@ export function PersonCardMini({ person, x, y, isExpanded, onClick, onAdd }: Pro
         stroke={isExpanded ? '#4a7050' : '#6b8f71'}
         strokeWidth={isExpanded ? 2.5 : 1.5}
         filter="url(#shadow)"
+        onClick={(e) => { e.stopPropagation(); onClick() }}
+        style={{ cursor: 'pointer' }}
       />
 
-      <circle cx={CARD_WIDTH / 2} cy={24} r={16} fill="#eee8dc" stroke="#6b8f71" strokeWidth={1} />
-      <text
-        x={CARD_WIDTH / 2}
-        y={28}
-        textAnchor="middle"
-        fontSize={11}
-        fontFamily="Inter, sans-serif"
-        fill="#6b8f71"
-      >
-        {initials}
-      </text>
+      {/* Click target over content */}
+      <g onClick={(e) => { e.stopPropagation(); onClick() }} style={{ cursor: 'pointer' }}>
+        <circle cx={CARD_WIDTH / 2} cy={24} r={16} fill="#eee8dc" stroke="#6b8f71" strokeWidth={1} />
+        <text
+          x={CARD_WIDTH / 2}
+          y={28}
+          textAnchor="middle"
+          fontSize={11}
+          fontFamily="Inter, sans-serif"
+          fill="#6b8f71"
+        >
+          {initials}
+        </text>
 
-      <text
-        x={CARD_WIDTH / 2}
-        y={54}
-        textAnchor="middle"
-        fontSize={13}
-        fontFamily="Lora, serif"
-        fontWeight={600}
-        fill="#3a3a3a"
-      >
-        {person.firstName}
-      </text>
+        <text
+          x={CARD_WIDTH / 2}
+          y={54}
+          textAnchor="middle"
+          fontSize={13}
+          fontFamily="Lora, serif"
+          fontWeight={600}
+          fill="#3a3a3a"
+        >
+          {person.firstName}
+        </text>
 
-      <text
-        x={CARD_WIDTH / 2}
-        y={70}
-        textAnchor="middle"
-        fontSize={11}
-        fontFamily="Inter, sans-serif"
-        fill="#777"
-      >
-        {birthYear ?? '?'}
-        {deathYear ? ` – ${deathYear}` : ''}
-      </text>
+        <text
+          x={CARD_WIDTH / 2}
+          y={70}
+          textAnchor="middle"
+          fontSize={11}
+          fontFamily="Inter, sans-serif"
+          fill="#777"
+        >
+          {birthYear ?? '?'}
+          {deathYear ? ` – ${deathYear}` : ''}
+        </text>
+      </g>
 
       {onAdd && (
         <g className="add-buttons" opacity={0}>

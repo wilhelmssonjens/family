@@ -10,7 +10,7 @@ interface Props {
   persons: Person[]
   relationships: Relationship[]
   centerId: string
-  onPersonClick: (personId: string) => void
+  onPersonClick: (personId: string, screenPos: { x: number; y: number }) => void
   onAdd?: (personId: string, relationType: string) => void
   expandedPersonId: string | null
 }
@@ -126,7 +126,12 @@ export function TreeView({ persons, relationships, centerId, onPersonClick, onAd
               x={node.x}
               y={node.y}
               isExpanded={expandedPersonId === node.personId}
-              onClick={() => onPersonClick(node.personId)}
+              onClick={() => {
+                // Calculate screen position from tree coordinates + current transform
+                const screenX = node.x * transform.k + transform.x
+                const screenY = node.y * transform.k + transform.y
+                onPersonClick(node.personId, { x: screenX, y: screenY })
+              }}
               onAdd={onAdd ? (relationType) => onAdd(node.personId, relationType) : undefined}
             />
           ))}

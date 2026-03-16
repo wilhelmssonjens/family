@@ -28,3 +28,8 @@ Visa planen som en numrerad sammanfattning med:
 - Öppna frågor eller beslut som behövs
 
 Starta INTE implementering. Vänta på godkännande.
+
+**Viktigt:** Varje steg i planen ska avslutas med commit och push:
+```bash
+git add -A && git commit -m "feat(scope): beskrivning" && git push
+```

@@ -33,6 +33,14 @@
 - Scopes: `tree`, `card`, `search`, `gallery`, `form`, `api`, `data`, `layout`
 - Co-Authored-By-rad vid AI-genererade commits
 
+## Mobilanpassning
+- Responsiv layout: alla vyer ska fungera på skärmar ner till 320px bredd
+- Touch-gester: pinch-to-zoom och drag-to-pan i trädvyn via d3-zoom
+- `@media (pointer: coarse)` för touch-specifik stil (t.ex. "+"-knappar visas vid tap)
+- Tailwind breakpoints: `sm:` (640px), `md:` (768px) — mobile-first
+- `touch-action: none` på SVG för att förhindra browser-zoom-konflikter
+- Testa alltid med Chrome DevTools mobile-emulering
+
 ## Filstruktur
 - Max ~300 rader per fil
 - Komponenter under `src/components/[Feature]/`

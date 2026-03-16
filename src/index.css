@@ -1,0 +1,24 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg-primary: #f7f4ef;
+  --color-bg-secondary: #eee8dc;
+  --color-accent: #6b8f71;
+  --color-accent-dark: #4a7050;
+  --color-text-primary: #3a3a3a;
+  --color-text-secondary: #777;
+  --color-card-bg: #ffffff;
+  --color-card-border: #6b8f71;
+
+  --font-serif: "Lora", serif;
+  --font-sans: "Inter", sans-serif;
+}
+
+@keyframes animate-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-in {
+  animation: animate-in 0.2s ease-out;
+}

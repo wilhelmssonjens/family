@@ -1,0 +1,12 @@
+[
+  { "type": "partner", "from": "jens", "to": "klara", "status": "current" },
+  { "type": "partner", "from": "erik", "to": "anna", "status": "current" },
+  { "type": "partner", "from": "lars", "to": "maria", "status": "current" },
+  { "type": "partner", "from": "gunnar", "to": "birgit", "status": "current" },
+  { "type": "parent", "from": "erik", "to": "jens" },
+  { "type": "parent", "from": "anna", "to": "jens" },
+  { "type": "parent", "from": "lars", "to": "klara" },
+  { "type": "parent", "from": "maria", "to": "klara" },
+  { "type": "parent", "from": "gunnar", "to": "erik" },
+  { "type": "parent", "from": "birgit", "to": "erik" }
+]

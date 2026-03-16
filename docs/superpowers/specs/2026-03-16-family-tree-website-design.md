@@ -62,8 +62,12 @@ Array med relationsobjekt:
 ```
 
 Relationstyper:
-- `partner` — Gift/sambo (symmetrisk)
+- `partner` — Gift/sambo (symmetrisk). Flera `partner`-relationer tillåts per person (omgifte). Valfritt fält `status`: `"current"` eller `"former"`.
 - `parent` — `from` är förälder till `to` (riktad)
+
+Härledda relationer:
+- **Syskon** härleds automatiskt — två personer som delar minst en förälder. Halvsyskon (delar en förälder) stöds implicit.
+- Steg-/adoptivrelationer ligger utanför v1-scopet.
 
 ### Foton
 
@@ -82,9 +86,16 @@ D3.js med SVG för full kontroll över den horisontella layouten. d3-zoom för p
 - Jens & Klara renderas som ett par i mitten
 - Jens föräldrar expanderar åt vänster, deras föräldrar ännu längre vänster
 - Klaras föräldrar expanderar åt höger
+- Eventuella barn till Jens & Klara renderas vertikalt under paret i mitten
 - Syskon renderas vertikalt (ovanför/under) på samma horisontella nivå
 - Linjer mellan föräldrar–barn och partner-par
 - `familySide` styr vilken sida personen hamnar på
+- Dynamisk spacing — noder anpassar avstånd baserat på antal syskon/barn för att undvika överlapp
+- V1 riktar sig mot upp till 500 personer. Vid väsentligt större dataset kan canvas-rendering eller virtualisering behövas.
+
+### Minimap
+
+En nedskalad silhuett av hela trädet visas i nedre högra hörnet. En rektangel markerar det synliga området (viewport). Klick/drag i minimap:en panorerar huvudvyn.
 
 ### Interaktion
 
@@ -141,11 +152,20 @@ Diskreta cirklar med "+" vid kanten av varje persons kort:
 
 ## Sidor och navigation
 
-### Tre vyer (tabs i samma SPA)
+### Routing (React Router)
 
-1. **Trädvyn** (startsida) — Interaktivt horisontellt släktträd
-2. **Sök** — Sökfält för namn, plats, yrke. Resultat som lista med korta personkort. Klick centrerar trädet på personen.
-3. **Bildgalleri** — Alla foton, filtrerbara per person eller generation. Klick tar dig till personen i trädet.
+| Route | Vy |
+|-------|----|
+| `/` | Trädvyn (startsida) |
+| `/sok` | Sökvy |
+| `/galleri` | Bildgalleri |
+| `/person/:id` | Trädvyn centrerad på specifik person (deep-link) |
+
+### Tre vyer
+
+1. **Trädvyn** (startsida, `/`) — Interaktivt horisontellt släktträd
+2. **Sök** (`/sok`) — Enstaka sökfält, substring-matchning (case-insensitive) på förnamn, efternamn, födelseort, yrke. Resultat som scrollbar lista med korta personkort. Klick navigerar till `/person/:id` och centrerar trädet.
+3. **Bildgalleri** (`/galleri`) — Alla foton, filtrerbara per person eller familjesida (Jens/Klara). Klick navigerar till personen i trädet.
 
 ### Header/navigation
 
@@ -186,9 +206,13 @@ Diskreta cirklar med "+" vid kanten av varje persons kort:
 
 ### Foto-upload
 
-- Besökaren väljer bild i formuläret
-- Bilden base64-kodas och bifogas i GitHub Issue:n
-- Vid godkännande extraheras bilden till `public/photos/`
+Foto-upload stöds inte i v1 av besökarformuläret (GitHub Issues har begränsad stöd för binärdata). Besökare kan istället beskriva vilka foton de har i fritextfältet, och Jens lägger till foton manuellt vid godkännande.
+
+### Säkerhet och missbruksskydd
+
+- GitHub-token lagras som Vercel environment variable, aldrig i repot
+- API-endpointen har IP-baserad rate limiting (max 10 requests/timme per IP)
+- Honeypot-fält i formuläret för att filtrera bort botar
 
 ---
 
@@ -201,11 +225,36 @@ Diskreta cirklar med "+" vid kanten av varje persons kort:
 
 ---
 
+## Dataladdning
+
+JSON-filerna (`persons.json`, `relationships.json`) lagras i `public/data/` och hämtas via `fetch()` vid runtime. Detta innebär att en ny deploy (auto-trigger via Vercel vid push) krävs för att uppdaterad data ska synas, men ingen rebuild behövs — filerna serveras statiskt.
+
+---
+
+## State management
+
+React Context för global state:
+- `TreeContext` — persondata, relationer, vilken person som är expanderad, pan/zoom-transform
+- `UIContext` — aktiv vy, formulärtillstånd
+
+Inget externt state-bibliotek behövs i v1.
+
+---
+
+## Felhantering och laddningstillstånd
+
+- **Laddning:** Spinner vid initial datahämtning
+- **Datahämtningsfel:** Felmeddelande med "Försök igen"-knapp
+- **Formulär:** Tydlig bekräftelse ("Tack! Ditt bidrag har skickats.") eller felmeddelande vid nätverksfel
+- **Tom data:** Tomt träd med uppmaning att börja lägga till personer
+
+---
+
 ## Teknikstack
 
 | Vad | Val |
 |-----|-----|
-| Ramverk | React 18 + TypeScript |
+| Ramverk | React 18 + TypeScript + React Router |
 | Byggverktyg | Vite |
 | Trädrendering | D3.js (SVG) |
 | Pan/zoom | d3-zoom |
@@ -225,6 +274,9 @@ Diskreta cirklar med "+" vid kanten av varje persons kort:
 ```
 family/
 ├── public/
+│   ├── data/
+│   │   ├── persons.json
+│   │   └── relationships.json
 │   └── photos/
 ├── src/
 │   ├── components/
@@ -234,17 +286,15 @@ family/
 │   │   ├── Search/        # Sökvy
 │   │   ├── Gallery/       # Bildgalleri
 │   │   └── Layout/        # Header, navigation
+│   ├── contexts/          # TreeContext, UIContext
 │   ├── data/
 │   │   └── types.ts       # TypeScript-typer för Person, Relationship
 │   ├── hooks/             # useTree, usePanZoom, useSearch
 │   ├── utils/             # Trädberäkningar, GEDCOM-import
 │   ├── App.tsx
 │   └── main.tsx
-├── data/
-│   ├── persons.json
-│   └── relationships.json
 ├── api/
 │   └── submit-contribution.ts  # Vercel serverless function
 └── scripts/
-    └── import-gedcom.ts   # Importverktyg
+    └── import-gedcom.ts   # CLI-importverktyg (GEDCOM 5.5.1, CSV)
 ```

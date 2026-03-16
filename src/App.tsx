@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, useParams } from 'react-router-dom'
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { FamilyDataProvider, useFamilyData } from './contexts/FamilyDataContext'
 import { Header } from './components/Layout/Header'
 import { TreeView } from './components/Tree/TreeView'
@@ -10,35 +10,17 @@ import { GalleryView } from './components/Gallery/GalleryView'
 import { buildFamilyGraph } from './utils/buildTree'
 import { getRelationLabel } from './utils/formatPerson'
 
+// Config: set to true to require GitHub Issue approval, false for direct edits
+const REQUIRE_APPROVAL = false
+
 function TreePage() {
   const { id } = useParams()
   const { persons, relationships, loading, error } = useFamilyData()
   const [expandedPersonId, setExpandedPersonId] = useState<string | null>(null)
-  const [popupPos, setPopupPos] = useState<{ x: number; y: number } | null>(null)
   const [addFormState, setAddFormState] = useState<{ relationType: string; relatedToId: string } | null>(null)
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle')
-  const popupRef = useRef<HTMLDivElement>(null)
 
   const graph = useMemo(() => buildFamilyGraph(persons, relationships), [persons, relationships])
-
-  // Clamp popup position so it doesn't go off-screen
-  useEffect(() => {
-    if (!popupRef.current || !popupPos) return
-    const rect = popupRef.current.getBoundingClientRect()
-    const parent = popupRef.current.parentElement?.getBoundingClientRect()
-    if (!parent) return
-
-    let { x, y } = popupPos
-    // Keep within bounds
-    if (x + rect.width > parent.width) x = parent.width - rect.width - 8
-    if (x < 8) x = 8
-    if (y < 8) y = 8
-    if (y + rect.height > parent.height) y = parent.height - rect.height - 8
-
-    if (x !== popupPos.x || y !== popupPos.y) {
-      setPopupPos({ x, y })
-    }
-  }, [popupPos])
 
   if (loading) return <div className="flex-1 flex items-center justify-center font-sans text-text-secondary">Laddar...</div>
   if (error) return (
@@ -55,7 +37,8 @@ function TreePage() {
   async function handleFormSubmit(data: AddPersonData) {
     setSubmitStatus('sending')
     try {
-      const res = await fetch('/api/submit-contribution', {
+      const endpoint = REQUIRE_APPROVAL ? '/api/submit-contribution' : '/api/submit-direct'
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...data, relatedToId: addFormState?.relatedToId }),
@@ -72,7 +55,6 @@ function TreePage() {
 
   function handleClose() {
     setExpandedPersonId(null)
-    setPopupPos(null)
     setAddFormState(null)
   }
 
@@ -82,31 +64,16 @@ function TreePage() {
         persons={persons}
         relationships={relationships}
         centerId={centerId}
-        onPersonClick={(pid, screenPos) => {
-          if (expandedPersonId === pid) {
-            handleClose()
-          } else {
-            setExpandedPersonId(pid)
-            // Position popup above the card
-            setPopupPos({ x: screenPos.x - 140, y: screenPos.y - 260 })
-            setAddFormState(null)
-          }
+        onPersonClick={(pid) => {
+          setExpandedPersonId(prev => prev === pid ? null : pid)
+          setAddFormState(null)
         }}
         onAdd={(personId, relationType) => {
           setAddFormState({ relationType, relatedToId: personId })
           setExpandedPersonId(null)
-          setPopupPos(null)
         }}
         expandedPersonId={expandedPersonId}
-      />
-
-      {expandedPerson && popupPos && (
-        <div
-          ref={popupRef}
-          className="absolute z-10 animate-in"
-          style={{ left: popupPos.x, top: popupPos.y }}
-          onClick={(e) => e.stopPropagation()}
-        >
+        expandedCardContent={expandedPerson ? (
           <PersonCardExpanded
             person={expandedPerson}
             relationLabel={getRelationLabel(graph, expandedPerson.id, persons)}
@@ -114,11 +81,10 @@ function TreePage() {
             onEdit={() => {
               setAddFormState({ relationType: 'edit', relatedToId: expandedPerson.id })
               setExpandedPersonId(null)
-              setPopupPos(null)
             }}
           />
-        </div>
-      )}
+        ) : undefined}
+      />
 
       {addFormState && (
         <div className="absolute top-4 left-4 z-10" onClick={(e) => e.stopPropagation()}>
@@ -131,12 +97,12 @@ function TreePage() {
       )}
 
       {submitStatus === 'success' && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-accent text-white font-sans text-sm px-4 py-2 rounded-lg shadow-md">
-          Tack! Ditt bidrag har skickats.
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-accent text-white font-sans text-sm px-4 py-2 rounded-lg shadow-md z-20">
+          {REQUIRE_APPROVAL ? 'Tack! Ditt bidrag har skickats för granskning.' : 'Tack! Informationen har lagts till.'}
         </div>
       )}
       {submitStatus === 'error' && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-red-600 text-white font-sans text-sm px-4 py-2 rounded-lg shadow-md">
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-red-600 text-white font-sans text-sm px-4 py-2 rounded-lg shadow-md z-20">
           Något gick fel. Försök igen.
         </div>
       )}

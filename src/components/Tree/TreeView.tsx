@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, useCallback } from 'react'
+import { useRef, useEffect, useState, useCallback, type ReactNode } from 'react'
 import { select } from 'd3-selection'
 import { zoom, zoomIdentity, type ZoomBehavior } from 'd3-zoom'
 import { computeTreeLayout } from './TreeLayout'
@@ -10,12 +10,14 @@ interface Props {
   persons: Person[]
   relationships: Relationship[]
   centerId: string
-  onPersonClick: (personId: string, screenPos: { x: number; y: number }) => void
+  onPersonClick: (personId: string) => void
   onAdd?: (personId: string, relationType: string) => void
   expandedPersonId: string | null
+  /** Rendered inside the SVG transform group, positioned at the expanded person's tree coordinates */
+  expandedCardContent?: ReactNode
 }
 
-export function TreeView({ persons, relationships, centerId, onPersonClick, onAdd, expandedPersonId }: Props) {
+export function TreeView({ persons, relationships, centerId, onPersonClick, onAdd, expandedPersonId, expandedCardContent }: Props) {
   const svgRef = useRef<SVGSVGElement>(null)
   const gRef = useRef<SVGGElement>(null)
   const [transform, setTransform] = useState({ x: 0, y: 0, k: 1 })
@@ -34,11 +36,8 @@ export function TreeView({ persons, relationships, centerId, onPersonClick, onAd
     const zoomBehavior: ZoomBehavior<SVGSVGElement, unknown> = zoom<SVGSVGElement, unknown>()
       .scaleExtent([0.3, 3])
       .filter((event) => {
-        // Allow all scroll/wheel events for zoom
-        // For mouse events, only allow if it's not a click on a card
         if (event.type === 'wheel') return true
         if (event.type === 'dblclick') return true
-        // Allow drag (mousedown) but only when not on a card element
         return event.type === 'mousedown' || event.type === 'touchstart'
       })
       .on('zoom', (event) => {
@@ -51,7 +50,6 @@ export function TreeView({ persons, relationships, centerId, onPersonClick, onAd
 
     svgEl.call(zoomBehavior)
 
-    // Center the view with a good zoom level
     svgEl.call(
       zoomBehavior.transform,
       zoomIdentity.translate(width / 2, height / 2).scale(1),
@@ -62,7 +60,7 @@ export function TreeView({ persons, relationships, centerId, onPersonClick, onAd
     }
   }, [])
 
-  // Build links for rendering
+  // Build links
   const links: Array<{ x1: number; y1: number; x2: number; y2: number; type: string }> = []
   for (const node of nodes) {
     for (const link of node.links) {
@@ -77,10 +75,8 @@ export function TreeView({ persons, relationships, centerId, onPersonClick, onAd
     }
   }
 
-  // Create curved path for parent-child links
   const renderLink = useCallback((link: typeof links[0], i: number) => {
     if (link.type === 'partner') {
-      // Dashed line for partners
       return (
         <line
           key={`link-${i}`}
@@ -93,7 +89,6 @@ export function TreeView({ persons, relationships, centerId, onPersonClick, onAd
       )
     }
 
-    // Curved path for parent-child
     const midX = (link.x1 + link.x2) / 2
     return (
       <path
@@ -106,6 +101,9 @@ export function TreeView({ persons, relationships, centerId, onPersonClick, onAd
     )
   }, [])
 
+  // Find the expanded node's tree position
+  const expandedNode = expandedPersonId ? nodes.find(n => n.personId === expandedPersonId) : null
+
   return (
     <div className="relative w-full h-full">
       <svg ref={svgRef} className="w-full h-full bg-bg-primary" style={{ touchAction: 'none' }}>
@@ -115,10 +113,8 @@ export function TreeView({ persons, relationships, centerId, onPersonClick, onAd
           </filter>
         </defs>
         <g ref={gRef} transform={`translate(${transform.x}, ${transform.y}) scale(${transform.k})`}>
-          {/* Links rendered behind cards */}
           {links.map((link, i) => renderLink(link, i))}
 
-          {/* Person cards */}
           {nodes.map((node) => (
             <PersonCardMini
               key={node.personId}
@@ -126,15 +122,26 @@ export function TreeView({ persons, relationships, centerId, onPersonClick, onAd
               x={node.x}
               y={node.y}
               isExpanded={expandedPersonId === node.personId}
-              onClick={() => {
-                // Calculate screen position from tree coordinates + current transform
-                const screenX = node.x * transform.k + transform.x
-                const screenY = node.y * transform.k + transform.y
-                onPersonClick(node.personId, { x: screenX, y: screenY })
-              }}
+              onClick={() => onPersonClick(node.personId)}
               onAdd={onAdd ? (relationType) => onAdd(node.personId, relationType) : undefined}
             />
           ))}
+
+          {/* Expanded card rendered inside the SVG transform group so it follows pan/zoom */}
+          {expandedNode && expandedCardContent && (
+            <foreignObject
+              x={expandedNode.x - 150}
+              y={expandedNode.y - 310}
+              width={320}
+              height={300}
+              style={{ overflow: 'visible' }}
+            >
+              {/* eslint-disable-next-line */}
+              <div onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+                {expandedCardContent}
+              </div>
+            </foreignObject>
+          )}
         </g>
       </svg>
       <Minimap

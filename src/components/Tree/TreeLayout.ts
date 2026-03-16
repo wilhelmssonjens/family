@@ -15,9 +15,9 @@ export interface LayoutNode {
 }
 
 const HORIZONTAL_GAP = 320
-const VERTICAL_GAP = 130
+const VERTICAL_GAP = 180
 const PARTNER_GAP = 150
-const SIBLING_GAP = 90
+const SIBLING_GAP = 130
 
 /**
  * Horizontal tree layout with generation-based columns.

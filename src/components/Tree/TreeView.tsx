@@ -77,15 +77,19 @@ export function TreeView({ persons, relationships, centerId, onPersonClick, onAd
 
   const renderLink = useCallback((link: typeof links[0], i: number) => {
     if (link.type === 'partner') {
+      const midX = (link.x1 + link.x2) / 2
+      const midY = (link.y1 + link.y2) / 2
       return (
-        <line
-          key={`link-${i}`}
-          x1={link.x1} y1={link.y1}
-          x2={link.x2} y2={link.y2}
-          stroke="#c4a77d"
-          strokeWidth={2}
-          strokeDasharray="6,4"
-        />
+        <g key={`link-${i}`}>
+          <line
+            x1={link.x1} y1={link.y1}
+            x2={link.x2} y2={link.y2}
+            stroke="#c4a77d"
+            strokeWidth={2.5}
+          />
+          <circle cx={midX} cy={midY} r={5} fill="#c4a77d" />
+          <circle cx={midX} cy={midY} r={2.5} fill="white" />
+        </g>
       )
     }
 
@@ -95,8 +99,9 @@ export function TreeView({ persons, relationships, centerId, onPersonClick, onAd
         key={`link-${i}`}
         d={`M ${link.x1} ${link.y1} C ${midX} ${link.y1}, ${midX} ${link.y2}, ${link.x2} ${link.y2}`}
         fill="none"
-        stroke="#aaa"
-        strokeWidth={1.5}
+        stroke="#bbb"
+        strokeWidth={1}
+        strokeDasharray="4,3"
       />
     )
   }, [])

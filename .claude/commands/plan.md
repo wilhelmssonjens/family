@@ -29,7 +29,9 @@ Visa planen som en numrerad sammanfattning med:
 
 Starta INTE implementering. Vänta på godkännande.
 
-**Viktigt:** Varje steg i planen ska avslutas med commit och push:
-```bash
-git add -A && git commit -m "feat(scope): beskrivning" && git push
-```
+**Viktigt:**
+- Varje steg i planen ska avslutas med commit och push:
+  ```bash
+  git add -A && git commit -m "feat(scope): beskrivning" && git push
+  ```
+- Inkludera alltid ett sista steg som uppdaterar `CLAUDE.md` och relevanta `docs/`-filer om arbetet påverkar arkitektur, datamodell, konventioner eller systemstruktur.

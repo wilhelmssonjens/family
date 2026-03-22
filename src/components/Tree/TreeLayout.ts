@@ -14,19 +14,19 @@ export interface LayoutNode {
   links: LayoutLink[]
 }
 
-const HORIZONTAL_GAP = 320
-const VERTICAL_GAP = 130
-const PARTNER_GAP = 150
-const SIBLING_GAP = 90
+const GENERATION_GAP = 300
+const SIBLING_GAP = 250
+const PARTNER_GAP = 160
 
 /**
- * Horizontal tree layout with generation-based columns.
+ * Vertical bottom-up tree layout with generation-based rows.
  *
- * X-axis = generations. Each generation gets a fixed x-column.
- * Y-axis = couples stacked vertically within a generation column.
+ * Y-axis = generations (negative y = older). Each generation gets a fixed y-row.
+ * X-axis = siblings spread horizontally within a generation.
  *
- * Center couple at x=0. Jens ancestors go left, Klara ancestors go right.
- * Siblings are placed vertically near their parent.
+ * Center couple at y=0. Ancestors go upward (negative y).
+ * Jens ancestors spread left, Klara ancestors spread right.
+ * Siblings are placed in a horizontal row at the same y-level.
  */
 export function computeTreeLayout(
   persons: Person[],
@@ -66,8 +66,8 @@ export function computeTreeLayout(
   }
   const children = Array.from(allChildIds).filter(id => !visited.has(id))
   children.forEach((childId, i) => {
-    const yOffset = (i - (children.length - 1) / 2) * SIBLING_GAP
-    placeNode(childId, 0, VERTICAL_GAP + yOffset, graph, nodes)
+    const xOffset = (i - (children.length - 1) / 2) * SIBLING_GAP
+    placeNode(childId, xOffset, GENERATION_GAP, graph, nodes)
     visited.add(childId)
     addLink(nodes, centerId, childId, 'parent-child')
   })
@@ -77,7 +77,8 @@ export function computeTreeLayout(
 
 /**
  * BFS expansion of ancestors, generation by generation.
- * Each generation gets a single x-column, with couples stacked vertically.
+ * Each generation gets a fixed y-row (negative = older).
+ * Siblings spread horizontally in the direction of their family side.
  */
 function expandAncestorsByGeneration(
   startPersonId: string,
@@ -86,14 +87,12 @@ function expandAncestorsByGeneration(
   nodes: Map<string, LayoutNode>,
   visited: Set<string>,
 ) {
-  // Queue of people whose parents we need to place, grouped by generation
   let currentGenPersons = [startPersonId]
   let generation = 1
 
   while (currentGenPersons.length > 0) {
-    const genX = direction * generation * HORIZONTAL_GAP
+    const genY = -generation * GENERATION_GAP
 
-    // Collect parent couples for this generation
     const couples: { parentIds: string[]; childId: string }[] = []
 
     for (const personId of currentGenPersons) {
@@ -108,16 +107,34 @@ function expandAncestorsByGeneration(
 
     if (couples.length === 0) break
 
-    // Place couples vertically centered in this generation column
     const nextGenPersons: string[] = []
 
-    for (let i = 0; i < couples.length; i++) {
-      const { parentIds, childId } = couples[i]
-      const coupleY = (i - (couples.length - 1) / 2) * VERTICAL_GAP
+    for (const { parentIds, childId } of couples) {
+      const childNode = nodes.get(childId)
+      if (!childNode) continue
+
+      // Place siblings of childId horizontally at same y, spreading in direction
+      const primaryParent = graph.get(parentIds[0])
+      const siblings = primaryParent
+        ? primaryParent.childIds.filter(id => id !== childId && !visited.has(id))
+        : []
+
+      siblings.forEach((sibId, j) => {
+        const sibX = childNode.x + (j + 1) * SIBLING_GAP * direction
+        placeNode(sibId, sibX, childNode.y, graph, nodes)
+        visited.add(sibId)
+        addLink(nodes, parentIds[0], sibId, 'parent-child')
+      })
+
+      // Center parent couple above the entire children row
+      const allChildrenX = [childNode.x, ...siblings.map(sibId => nodes.get(sibId)!.x)]
+      const minX = Math.min(...allChildrenX)
+      const maxX = Math.max(...allChildrenX)
+      const centerX = (minX + maxX) / 2
 
       if (parentIds.length >= 2) {
-        placeNode(parentIds[0], genX - PARTNER_GAP / 2, coupleY, graph, nodes)
-        placeNode(parentIds[1], genX + PARTNER_GAP / 2, coupleY, graph, nodes)
+        placeNode(parentIds[0], centerX - PARTNER_GAP / 2, genY, graph, nodes)
+        placeNode(parentIds[1], centerX + PARTNER_GAP / 2, genY, graph, nodes)
         visited.add(parentIds[0])
         visited.add(parentIds[1])
 
@@ -127,27 +144,10 @@ function expandAncestorsByGeneration(
 
         nextGenPersons.push(parentIds[0], parentIds[1])
       } else {
-        placeNode(parentIds[0], genX, coupleY, graph, nodes)
+        placeNode(parentIds[0], centerX, genY, graph, nodes)
         visited.add(parentIds[0])
         addLink(nodes, parentIds[0], childId, 'parent-child')
         nextGenPersons.push(parentIds[0])
-      }
-
-      // Place siblings of childId (other children of these parents)
-      const primaryParent = graph.get(parentIds[0])
-      if (primaryParent) {
-        const siblings = primaryParent.childIds.filter(
-          id => id !== childId && !visited.has(id)
-        )
-        const childNode = nodes.get(childId)
-        if (childNode && siblings.length > 0) {
-          siblings.forEach((sibId, j) => {
-            const sibY = childNode.y + (j + 1) * SIBLING_GAP
-            placeNode(sibId, childNode.x, sibY, graph, nodes)
-            visited.add(sibId)
-            addLink(nodes, parentIds[0], sibId, 'parent-child')
-          })
-        }
       }
     }
 

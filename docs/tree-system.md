@@ -16,9 +16,9 @@ Horisontell trädvy renderad med D3.js i SVG. Jens & Klara i mitten, Jens släkt
 ## Layout-algoritm (TreeLayout.ts)
 
 ### Konstanter
-- `HORIZONTAL_GAP = 320` — Avstånd mellan generationer (x-axel)
-- `VERTICAL_GAP = 140` — Avstånd mellan syskon (y-axel)
-- `PARTNER_GAP = 150` — Avstånd mellan partners i ett par
+- `GENERATION_GAP = 300` — Avstånd mellan generationer (y-axel)
+- `SIBLING_GAP = 250` — Avstånd mellan syskon (x-axel)
+- `PARTNER_GAP = 160` — Avstånd mellan partners i ett par
 
 ### Placering
 1. Centerparet (Jens & Klara) placeras vid (±PARTNER_GAP/2, 0)

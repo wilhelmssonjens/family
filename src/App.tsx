@@ -56,6 +56,7 @@ function TreePage() {
           deathPlace: data.deathPlace || null,
           occupation: data.occupation || null,
           contactInfo: data.contactInfo || null,
+          stories: data.stories.filter(s => s.title || s.text),
         })
       }
       setSubmitStatus('success')

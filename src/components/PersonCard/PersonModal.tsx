@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Modal } from '../Modal/Modal'
 import { formatLifespan, formatFullName, getInitials } from '../../utils/formatPerson'
-import type { Person } from '../../types'
+import type { Person, Story } from '../../types'
 
 export interface EditPersonData {
   firstName: string
@@ -13,6 +13,7 @@ export interface EditPersonData {
   deathPlace: string
   occupation: string
   contactInfo: string
+  stories: Story[]
 }
 
 interface Props {
@@ -38,6 +39,7 @@ export function PersonModal({ person, relationLabel, onClose, onSave, onDelete, 
     deathPlace: person.deathPlace ?? '',
     occupation: person.occupation ?? '',
     contactInfo: person.contactInfo ?? '',
+    stories: person.stories.length > 0 ? [...person.stories] : [],
   })
 
   const fullName = formatFullName(person.firstName, person.lastName, person.birthName)
@@ -63,12 +65,28 @@ export function PersonModal({ person, relationLabel, onClose, onSave, onDelete, 
       deathPlace: person.deathPlace ?? '',
       occupation: person.occupation ?? '',
       contactInfo: person.contactInfo ?? '',
+      stories: person.stories.length > 0 ? [...person.stories] : [],
     })
     setEditing(false)
   }
 
   function updateField(field: keyof EditPersonData, value: string) {
     setForm(prev => ({ ...prev, [field]: value }))
+  }
+
+  function updateStory(index: number, field: 'title' | 'text', value: string) {
+    setForm(prev => ({
+      ...prev,
+      stories: prev.stories.map((s, i) => i === index ? { ...s, [field]: value } : s),
+    }))
+  }
+
+  function addStory() {
+    setForm(prev => ({ ...prev, stories: [...prev.stories, { title: '', text: '' }] }))
+  }
+
+  function removeStory(index: number) {
+    setForm(prev => ({ ...prev, stories: prev.stories.filter((_, i) => i !== index) }))
   }
 
   if (editing) {
@@ -94,6 +112,47 @@ export function PersonModal({ person, relationLabel, onClose, onSave, onDelete, 
             <EditField label="Dödsort" value={form.deathPlace} onChange={(v) => updateField('deathPlace', v)} inputClass={inputClass} />
             <EditField label="Yrke" value={form.occupation} onChange={(v) => updateField('occupation', v)} inputClass={inputClass} />
             <EditField label="Kontakt" value={form.contactInfo} onChange={(v) => updateField('contactInfo', v)} inputClass={inputClass} />
+          </div>
+
+          {/* Stories */}
+          <div className="mb-5">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-serif font-semibold text-text-primary text-sm">Berättelser</h3>
+              <button
+                type="button"
+                onClick={addStory}
+                className="text-xs font-sans text-accent hover:text-accent-dark transition-colors"
+              >
+                + Lägg till berättelse
+              </button>
+            </div>
+            {form.stories.map((story, i) => (
+              <div key={i} className="mb-3 p-3 border border-bg-secondary rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-sans text-text-secondary">Berättelse {i + 1}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeStory(i)}
+                    className="text-xs font-sans text-red-500 hover:text-red-700 transition-colors"
+                  >
+                    Ta bort
+                  </button>
+                </div>
+                <input
+                  className={`${inputClass} mb-2`}
+                  placeholder="Titel"
+                  value={story.title}
+                  onChange={(e) => updateStory(i, 'title', e.target.value)}
+                />
+                <textarea
+                  className={`${inputClass} resize-none`}
+                  rows={3}
+                  placeholder="Berättelse..."
+                  value={story.text}
+                  onChange={(e) => updateStory(i, 'text', e.target.value)}
+                />
+              </div>
+            ))}
           </div>
 
           {/* Delete confirmation */}

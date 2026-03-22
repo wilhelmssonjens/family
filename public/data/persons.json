@@ -256,5 +256,21 @@
     "stories": [],
     "contactInfo": null,
     "familySide": "center"
+  },
+  {
+    "id": "erik-ahlbck",
+    "firstName": "Erik",
+    "lastName": "Ahlbäck",
+    "birthName": null,
+    "birthDate": "19900820",
+    "birthPlace": "Mölnlycke",
+    "deathDate": null,
+    "deathPlace": null,
+    "gender": "male",
+    "occupation": null,
+    "photos": [],
+    "stories": [],
+    "contactInfo": null,
+    "familySide": "center"
   }
 ]

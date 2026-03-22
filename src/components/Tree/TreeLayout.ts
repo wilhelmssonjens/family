@@ -123,7 +123,9 @@ function expandAncestorsByGeneration(
         const sibX = childNode.x + (j + 1) * SIBLING_GAP * direction
         placeNode(sibId, sibX, childNode.y, graph, nodes)
         visited.add(sibId)
-        addLink(nodes, parentIds[0], sibId, 'parent-child')
+        for (const pid of parentIds) {
+          addLink(nodes, pid, sibId, 'parent-child')
+        }
       })
 
       // Center parent couple above the entire children row

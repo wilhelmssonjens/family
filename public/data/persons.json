@@ -222,5 +222,21 @@
     "stories": [],
     "contactInfo": null,
     "familySide": "center"
+  },
+  {
+    "id": "lena-ahlbck",
+    "firstName": "Lena",
+    "lastName": "Ahlbäck",
+    "birthName": null,
+    "birthDate": "19580904",
+    "birthPlace": null,
+    "deathDate": null,
+    "deathPlace": null,
+    "gender": "female",
+    "occupation": null,
+    "photos": [],
+    "stories": [],
+    "contactInfo": null,
+    "familySide": "center"
   }
 ]

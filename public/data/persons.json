@@ -10,7 +10,9 @@
     "deathPlace": null,
     "gender": "male",
     "occupation": null,
-    "photos": [],
+    "photos": [
+      "https://qqy1aaclajdyfn41.public.blob.vercel-storage.com/photos/image-1774197603986.jpg"
+    ],
     "stories": [],
     "contactInfo": null,
     "familySide": "center"

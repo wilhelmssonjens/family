@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { Modal } from '../Modal/Modal'
 import { formatLifespan, formatFullName, getInitials } from '../../utils/formatPerson'
+import { compressImage } from '../../utils/compressImage'
 import type { Person, Story } from '../../types'
 
 export interface EditPersonData {
@@ -14,6 +15,7 @@ export interface EditPersonData {
   occupation: string
   contactInfo: string
   stories: Story[]
+  photos: string[]
 }
 
 interface Props {
@@ -29,6 +31,8 @@ export function PersonModal({ person, relationLabel, onClose, onSave, onDelete, 
   const [editing, setEditing] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [expandedStory, setExpandedStory] = useState<number | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [form, setForm] = useState<EditPersonData>({
     firstName: person.firstName,
     lastName: person.lastName,
@@ -40,6 +44,7 @@ export function PersonModal({ person, relationLabel, onClose, onSave, onDelete, 
     occupation: person.occupation ?? '',
     contactInfo: person.contactInfo ?? '',
     stories: person.stories.length > 0 ? [...person.stories] : [],
+    photos: [...person.photos],
   })
 
   const fullName = formatFullName(person.firstName, person.lastName, person.birthName)
@@ -51,7 +56,7 @@ export function PersonModal({ person, relationLabel, onClose, onSave, onDelete, 
   function handleSave() {
     if (!form.firstName.trim() || !form.lastName.trim()) return
     onSave(form)
-    setEditing(false)
+    onClose()
   }
 
   function handleCancel() {
@@ -66,6 +71,7 @@ export function PersonModal({ person, relationLabel, onClose, onSave, onDelete, 
       occupation: person.occupation ?? '',
       contactInfo: person.contactInfo ?? '',
       stories: person.stories.length > 0 ? [...person.stories] : [],
+      photos: [...person.photos],
     })
     setEditing(false)
   }
@@ -87,6 +93,33 @@ export function PersonModal({ person, relationLabel, onClose, onSave, onDelete, 
 
   function removeStory(index: number) {
     setForm(prev => ({ ...prev, stories: prev.stories.filter((_, i) => i !== index) }))
+  }
+
+  async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setUploading(true)
+    try {
+      const { base64, filename } = await compressImage(file)
+      const res = await fetch('/api/upload-photo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: base64, filename }),
+      })
+      if (!res.ok) throw new Error()
+      const { url } = await res.json()
+      setForm(prev => ({ ...prev, photos: [...prev.photos, url] }))
+    } catch {
+      alert('Kunde inte ladda upp bilden. Försök igen.')
+    } finally {
+      setUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  function removePhoto(index: number) {
+    setForm(prev => ({ ...prev, photos: prev.photos.filter((_, i) => i !== index) }))
   }
 
   if (editing) {
@@ -112,6 +145,42 @@ export function PersonModal({ person, relationLabel, onClose, onSave, onDelete, 
             <EditField label="Dödsort" value={form.deathPlace} onChange={(v) => updateField('deathPlace', v)} inputClass={inputClass} />
             <EditField label="Yrke" value={form.occupation} onChange={(v) => updateField('occupation', v)} inputClass={inputClass} />
             <EditField label="Kontakt" value={form.contactInfo} onChange={(v) => updateField('contactInfo', v)} inputClass={inputClass} />
+          </div>
+
+          {/* Photos */}
+          <div className="mb-5">
+            <h3 className="font-serif font-semibold text-text-primary text-sm mb-2">Foto</h3>
+            {form.photos.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-3">
+                {form.photos.map((url, i) => (
+                  <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-bg-secondary">
+                    <img src={photoSrc(url)} alt="" className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => removePhoto(i)}
+                      className="absolute top-0 right-0 w-5 h-5 bg-red-600 text-white text-xs rounded-bl-lg flex items-center justify-center hover:bg-red-700"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handlePhotoUpload}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="text-xs font-sans text-accent hover:text-accent-dark transition-colors disabled:opacity-50"
+            >
+              {uploading ? 'Laddar upp...' : '+ Lägg till foto'}
+            </button>
           </div>
 
           {/* Stories */}
@@ -214,7 +283,7 @@ export function PersonModal({ person, relationLabel, onClose, onSave, onDelete, 
           <div className="w-20 h-20 rounded-xl bg-bg-secondary border-2 border-card-border flex items-center justify-center flex-shrink-0 overflow-hidden">
             {person.photos.length > 0 ? (
               <img
-                src={`/${person.photos[0]}`}
+                src={photoSrc(person.photos[0])}
                 alt={person.firstName}
                 className="w-full h-full object-cover"
               />
@@ -306,6 +375,11 @@ export function PersonModal({ person, relationLabel, onClose, onSave, onDelete, 
       </div>
     </Modal>
   )
+}
+
+function photoSrc(path: string): string {
+  if (path.startsWith('http://') || path.startsWith('https://')) return path
+  return `/${path}`
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {

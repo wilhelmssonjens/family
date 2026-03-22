@@ -19,7 +19,7 @@ export function GalleryView({ persons }: Props) {
     })
     .flatMap((p) =>
       p.photos.map((photo) => ({
-        src: `/${photo}`,
+        src: photo.startsWith('http') ? photo : `/${photo}`,
         person: p,
       }))
     )

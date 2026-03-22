@@ -15,9 +15,18 @@ export function PersonCardMini({ person, x, y, onClick }: Props) {
   const initials = getInitials(person.firstName, person.lastName)
   const birthYear = person.birthDate?.slice(0, 4)
   const deathYear = person.deathDate?.slice(0, 4)
+  const photoUrl = person.photos[0]
+  const hasPhoto = !!photoUrl
 
   return (
     <g transform={`translate(${x - CARD_WIDTH / 2}, ${y - CARD_HEIGHT / 2})`}>
+      {/* Clip path for circular photo */}
+      <defs>
+        <clipPath id={`photo-clip-${person.id}`}>
+          <circle cx={CARD_WIDTH / 2} cy={24} r={16} />
+        </clipPath>
+      </defs>
+
       {/* Card background */}
       <rect
         width={CARD_WIDTH}
@@ -38,17 +47,34 @@ export function PersonCardMini({ person, x, y, onClick }: Props) {
         onClick={(e) => { e.stopPropagation(); onClick() }}
         style={{ cursor: 'pointer' }}
       >
-        <circle cx={CARD_WIDTH / 2} cy={24} r={16} fill="#eee8dc" stroke="#6b8f71" strokeWidth={1} />
-        <text
-          x={CARD_WIDTH / 2}
-          y={28}
-          textAnchor="middle"
-          fontSize={11}
-          fontFamily="Inter, sans-serif"
-          fill="#6b8f71"
-        >
-          {initials}
-        </text>
+        {hasPhoto ? (
+          <>
+            <circle cx={CARD_WIDTH / 2} cy={24} r={16} fill="#eee8dc" stroke="#6b8f71" strokeWidth={1} />
+            <image
+              href={photoUrl.startsWith('http') ? photoUrl : `/${photoUrl}`}
+              x={CARD_WIDTH / 2 - 16}
+              y={24 - 16}
+              width={32}
+              height={32}
+              clipPath={`url(#photo-clip-${person.id})`}
+              preserveAspectRatio="xMidYMid slice"
+            />
+          </>
+        ) : (
+          <>
+            <circle cx={CARD_WIDTH / 2} cy={24} r={16} fill="#eee8dc" stroke="#6b8f71" strokeWidth={1} />
+            <text
+              x={CARD_WIDTH / 2}
+              y={28}
+              textAnchor="middle"
+              fontSize={11}
+              fontFamily="Inter, sans-serif"
+              fill="#6b8f71"
+            >
+              {initials}
+            </text>
+          </>
+        )}
 
         <text
           x={CARD_WIDTH / 2}

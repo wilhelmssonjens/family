@@ -29,7 +29,7 @@ public/data/*.json ──fetch()──> FamilyDataContext ──> TreeView/Searc
 - GitHub-token som Vercel environment variable
 - IP-baserad rate limiting (10 req/timme)
 - Honeypot-fält i formulär mot botar
-- Foto-upload stöds ej i v1
+- Foto-upload via Vercel Blob (komprimeras client-side till max 400x400 JPEG)
 
 ## Nyckeltekniker
 | Teknik | Användning |
@@ -39,3 +39,4 @@ public/data/*.json ──fetch()──> FamilyDataContext ──> TreeView/Searc
 | React Router | SPA-routing (`/`, `/sok`, `/galleri`, `/person/:id`) |
 | Modal-system | Centrerade modaler för persondetaljer, redigering och lägg-till-släkting |
 | Vercel Functions | Serverless endpoints för bidrag |
+| Vercel Blob | Foto-lagring (komprimerade JPEG, publik åtkomst) |

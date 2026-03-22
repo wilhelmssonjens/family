@@ -57,6 +57,7 @@ function TreePage() {
           occupation: data.occupation || null,
           contactInfo: data.contactInfo || null,
           stories: data.stories.filter(s => s.title || s.text),
+          photos: data.photos,
         })
       }
       setSubmitStatus('success')

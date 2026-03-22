@@ -159,6 +159,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         occupation: rest.occupation || null,
         contactInfo: rest.contactInfo || null,
         stories: Array.isArray(rest.stories) ? rest.stories.filter((s: any) => s.title || s.text) : existing.stories,
+        photos: Array.isArray(rest.photos) ? rest.photos : existing.photos,
       }
 
       const personsOk = await updateFile(

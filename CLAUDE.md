@@ -25,6 +25,7 @@ src/
 api/                  # Vercel serverless functions
   submit-contribution.ts  # GitHub Issue-flöde (med godkännande)
   submit-direct.ts        # Direkt commit till repo (utan godkännande)
+  upload-photo.ts         # Foto-upload till Vercel Blob
 docs/                 # Detaljerad dokumentation
 ```
 
@@ -58,7 +59,7 @@ vercel --prod         # Deploya till Vercel
 
 ## Konfiguration
 - `REQUIRE_APPROVAL` i `src/App.tsx` — `true` för GitHub Issue-flöde, `false` för direkt-inmatning
-- Vercel env vars: `GITHUB_TOKEN`, `GITHUB_REPO_OWNER`, `GITHUB_REPO_NAME`
+- Vercel env vars: `GITHUB_TOKEN`, `GITHUB_REPO_OWNER`, `GITHUB_REPO_NAME`, `BLOB_READ_WRITE_TOKEN`
 
 ## Referensdokumentation
 - Arkitektur: @docs/architecture.md

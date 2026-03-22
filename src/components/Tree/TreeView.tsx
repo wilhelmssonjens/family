@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, useCallback, type ReactNode } from 'react'
+import { useRef, useEffect, useState } from 'react'
 import { select } from 'd3-selection'
 import { zoom, zoomIdentity, type ZoomBehavior } from 'd3-zoom'
 import { computeTreeLayout } from './TreeLayout'
@@ -11,13 +11,9 @@ interface Props {
   relationships: Relationship[]
   centerId: string
   onPersonClick: (personId: string) => void
-  onAdd?: (personId: string, relationType: string) => void
-  expandedPersonId: string | null
-  /** Rendered inside the SVG transform group, positioned at the expanded person's tree coordinates */
-  expandedCardContent?: ReactNode
 }
 
-export function TreeView({ persons, relationships, centerId, onPersonClick, onAdd, expandedPersonId, expandedCardContent }: Props) {
+export function TreeView({ persons, relationships, centerId, onPersonClick }: Props) {
   const svgRef = useRef<SVGSVGElement>(null)
   const gRef = useRef<SVGGElement>(null)
   const [transform, setTransform] = useState({ x: 0, y: 0, k: 1 })
@@ -52,7 +48,7 @@ export function TreeView({ persons, relationships, centerId, onPersonClick, onAd
 
     svgEl.call(
       zoomBehavior.transform,
-      zoomIdentity.translate(width / 2, height / 2).scale(1),
+      zoomIdentity.translate(width / 2, height * 0.75).scale(1),
     )
 
     return () => {
@@ -60,49 +56,34 @@ export function TreeView({ persons, relationships, centerId, onPersonClick, onAd
     }
   }, [])
 
-  // Build links
-  const links: Array<{ x1: number; y1: number; x2: number; y2: number; type: string }> = []
+  // Build partner links and bracket groups for parent-child connections
+  const partnerLinks: Array<{ x1: number; y1: number; x2: number; y2: number }> = []
+  const childToParents = new Map<string, typeof nodes>()
+
   for (const node of nodes) {
     for (const link of node.links) {
       const target = nodes.find(n => n.personId === link.targetId)
-      if (target) {
-        links.push({
-          x1: node.x, y1: node.y,
-          x2: target.x, y2: target.y,
-          type: link.type,
-        })
+      if (!target) continue
+
+      if (link.type === 'partner') {
+        partnerLinks.push({ x1: node.x, y1: node.y, x2: target.x, y2: target.y })
+      } else {
+        const parents = childToParents.get(link.targetId) ?? []
+        parents.push(node)
+        childToParents.set(link.targetId, parents)
       }
     }
   }
 
-  const renderLink = useCallback((link: typeof links[0], i: number) => {
-    if (link.type === 'partner') {
-      return (
-        <line
-          key={`link-${i}`}
-          x1={link.x1} y1={link.y1}
-          x2={link.x2} y2={link.y2}
-          stroke="#c4a77d"
-          strokeWidth={2}
-          strokeDasharray="6,4"
-        />
-      )
-    }
-
-    const midX = (link.x1 + link.x2) / 2
-    return (
-      <path
-        key={`link-${i}`}
-        d={`M ${link.x1} ${link.y1} C ${midX} ${link.y1}, ${midX} ${link.y2}, ${link.x2} ${link.y2}`}
-        fill="none"
-        stroke="#aaa"
-        strokeWidth={1.5}
-      />
-    )
-  }, [])
-
-  // Find the expanded node's tree position
-  const expandedNode = expandedPersonId ? nodes.find(n => n.personId === expandedPersonId) : null
+  // Group children by parent set for bracket rendering
+  const bracketMap = new Map<string, { parentIds: string[]; childIds: string[] }>()
+  for (const [childId, parents] of childToParents) {
+    const key = parents.map(p => p.personId).sort().join('|')
+    const group = bracketMap.get(key) ?? { parentIds: parents.map(p => p.personId), childIds: [] }
+    group.childIds.push(childId)
+    bracketMap.set(key, group)
+  }
+  const brackets = Array.from(bracketMap.values())
 
   return (
     <div className="relative w-full h-full">
@@ -113,7 +94,58 @@ export function TreeView({ persons, relationships, centerId, onPersonClick, onAd
           </filter>
         </defs>
         <g ref={gRef} transform={`translate(${transform.x}, ${transform.y}) scale(${transform.k})`}>
-          {links.map((link, i) => renderLink(link, i))}
+          {/* Partner links */}
+          {partnerLinks.map((link, i) => (
+            <line
+              key={`partner-${i}`}
+              x1={link.x1} y1={link.y1}
+              x2={link.x2} y2={link.y2}
+              stroke="#c4a77d"
+              strokeWidth={2}
+              strokeDasharray="6,4"
+            />
+          ))}
+
+          {/* Parent-child bracket lines */}
+          {brackets.map((group, i) => {
+            const parentNodes = group.parentIds
+              .map(id => nodes.find(n => n.personId === id))
+              .filter((n): n is typeof nodes[0] => n !== undefined)
+            const childNodes = group.childIds
+              .map(id => nodes.find(n => n.personId === id))
+              .filter((n): n is typeof nodes[0] => n !== undefined)
+            if (parentNodes.length === 0 || childNodes.length === 0) return null
+
+            const parentCenterX = parentNodes.reduce((sum, n) => sum + n.x, 0) / parentNodes.length
+            const parentCenterY = parentNodes.reduce((sum, n) => sum + n.y, 0) / parentNodes.length
+            const avgChildY = childNodes.reduce((sum, n) => sum + n.y, 0) / childNodes.length
+            const junctionY = parentCenterY + 0.4 * (avgChildY - parentCenterY)
+
+            if (childNodes.length === 1) {
+              return (
+                <line
+                  key={`bracket-${i}`}
+                  x1={parentCenterX} y1={parentCenterY}
+                  x2={childNodes[0].x} y2={childNodes[0].y}
+                  stroke="#aaa" strokeWidth={1.5}
+                />
+              )
+            }
+
+            const childXs = childNodes.map(n => n.x)
+            const minChildX = Math.min(...childXs)
+            const maxChildX = Math.max(...childXs)
+
+            return (
+              <g key={`bracket-${i}`}>
+                <line x1={parentCenterX} y1={parentCenterY} x2={parentCenterX} y2={junctionY} stroke="#aaa" strokeWidth={1.5} />
+                <line x1={minChildX} y1={junctionY} x2={maxChildX} y2={junctionY} stroke="#aaa" strokeWidth={1.5} />
+                {childNodes.map((child, j) => (
+                  <line key={j} x1={child.x} y1={junctionY} x2={child.x} y2={child.y} stroke="#aaa" strokeWidth={1.5} />
+                ))}
+              </g>
+            )
+          })}
 
           {nodes.map((node) => (
             <PersonCardMini
@@ -121,28 +153,9 @@ export function TreeView({ persons, relationships, centerId, onPersonClick, onAd
               person={node.person}
               x={node.x}
               y={node.y}
-              isExpanded={expandedPersonId === node.personId}
               onClick={() => onPersonClick(node.personId)}
-              onAdd={onAdd ? (relationType) => onAdd(node.personId, relationType) : undefined}
             />
           ))}
-
-          {/* Expanded card rendered inside the SVG transform group so it follows pan/zoom (desktop only) */}
-          {expandedNode && expandedCardContent && (
-            <foreignObject
-              x={expandedNode.x - 150}
-              y={expandedNode.y - 310}
-              width={320}
-              height={300}
-              style={{ overflow: 'visible' }}
-              className="hidden md:block"
-            >
-              {/* eslint-disable-next-line */}
-              <div onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-                {expandedCardContent}
-              </div>
-            </foreignObject>
-          )}
         </g>
       </svg>
       <Minimap

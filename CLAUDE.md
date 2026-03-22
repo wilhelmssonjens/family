@@ -12,8 +12,9 @@ public/photos/        # Bilder på familjemedlemmar
 src/
   components/
     Tree/             # TreeView (D3 pan/zoom), TreeLayout, Minimap
-    PersonCard/       # PersonCardMini (SVG), PersonCardExpanded (DOM)
-    AddForm/          # AddPersonForm (kompakt + utfällt)
+    PersonCard/       # PersonCardMini (SVG), PersonModal (centrerad modal med visning/redigering)
+    AddForm/          # AddRelativeModal (modal med relationstypväljare + formulär)
+    Modal/            # Återanvändbar Modal-komponent
     Search/           # SearchView med live-filtrering
     Gallery/          # GalleryView med familjesida-filter
     Layout/           # Header med navigation

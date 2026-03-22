@@ -8,8 +8,10 @@ Horisontell trädvy renderad med D3.js i SVG. Jens & Klara i mitten, Jens släkt
 - `src/components/Tree/TreeLayout.ts` — Ren funktion: `computeTreeLayout(persons, rels, centerId) → LayoutNode[]`
 - `src/components/Tree/TreeView.tsx` — D3 SVG-rendering med pan/zoom
 - `src/components/Tree/Minimap.tsx` — Nedskalad silhuett med viewport-rektangel
-- `src/components/PersonCard/PersonCardMini.tsx` — SVG-personkort med "+"-knappar (hover)
-- `src/components/PersonCard/PersonCardExpanded.tsx` — DOM-detaljkort (renderas via foreignObject)
+- `src/components/PersonCard/PersonCardMini.tsx` — SVG-personkort (klickbart, öppnar modal)
+- `src/components/PersonCard/PersonModal.tsx` — Modal med persondetaljer, redigering och lägg-till-släkting
+- `src/components/AddForm/AddRelativeModal.tsx` — Modal för att lägga till ny släkting med relationstypväljare
+- `src/components/Modal/Modal.tsx` — Återanvändbar modal-komponent med backdrop och Escape-stöd
 
 ## Layout-algoritm (TreeLayout.ts)
 
@@ -34,14 +36,15 @@ Horisontell trädvy renderad med D3.js i SVG. Jens & Klara i mitten, Jens släkt
 - Centreras på Jens & Klara vid laddning
 - Transform-state i React useState → SVG `<g>` transform
 
-## Expanderat kort
-Renderas som `<foreignObject>` inuti SVG transform-gruppen (följer pan/zoom).
-Positioneras ovanför den klickade personens trädkoordinater.
+## Personinteraktion (modal-baserad)
 
-## "+"-knappar
-- Dolda med `opacity: 0`, visas vid hover via CSS (`.person-card-group:hover .add-buttons`)
-- Osynlig utökad hitarea runt kortet (`transparent rect`) håller hovern aktiv
-- Tre knappar: förälder (vänster), syskon (under), partner (höger)
+Klick på ett PersonCardMini-kort i trädet öppnar en centrerad modal (PersonModal) som visar all personinfo. Modalen har tre lägen:
+
+1. **Visning**: Foto/initialer, namn, födelse/dödsinfo, yrke, berättelser, kontaktinfo. Knappar: Redigera, Lägg till släkting, Stäng.
+2. **Redigering**: Alla fält blir redigerbara inline. Knappar: Spara, Avbryt.
+3. **Lägg till släkting**: Öppnar AddRelativeModal med relationstypväljare (förälder/syskon/partner/barn), kön-väljare och formulärfält.
+
+Modaler renderas som DOM-element ovanpå SVG-trädet (inte via foreignObject), vilket ger konsekvent beteende på desktop och mobil.
 
 ## Hur man ändrar layouten
 1. Justera konstanter i `TreeLayout.ts` (gap-värden)

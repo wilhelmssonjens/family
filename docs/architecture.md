@@ -9,11 +9,12 @@ React SPA som renderar ett interaktivt horisontellt släktträd med D3.js. Data 
 ```
 public/data/*.json ──fetch()──> FamilyDataContext ──> TreeView/SearchView/GalleryView
                                                            │
-                                                      PersonCardMini
+                                                      PersonCardMini (SVG)
                                                            │ (klick)
-                                                      PersonCardExpanded
-                                                           │ (redigera/lägg till)
-                                                      AddPersonForm
+                                                      PersonModal (centrerad modal)
+                                                      ├── Visa alla detaljer
+                                                      ├── Redigera inline → api/submit-direct.ts
+                                                      └── Lägg till släkting → AddRelativeModal
                                                            │ (skicka)
                                              api/submit-direct.ts ──GitHub API──> public/data/*.json
                                              api/submit-contribution.ts ──GitHub API──> GitHub Issue
@@ -36,5 +37,5 @@ public/data/*.json ──fetch()──> FamilyDataContext ──> TreeView/Searc
 | D3.js + d3-zoom | SVG-rendering av träd med pan/zoom |
 | React Context | FamilyDataContext för global data |
 | React Router | SPA-routing (`/`, `/sok`, `/galleri`, `/person/:id`) |
-| foreignObject | Renderar expanderat personkort inuti SVG-transformgrupp |
+| Modal-system | Centrerade modaler för persondetaljer, redigering och lägg-till-släkting |
 | Vercel Functions | Serverless endpoints för bidrag |

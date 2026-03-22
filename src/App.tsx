@@ -3,8 +3,8 @@ import { useState, useMemo } from 'react'
 import { FamilyDataProvider, useFamilyData } from './contexts/FamilyDataContext'
 import { Header } from './components/Layout/Header'
 import { TreeView } from './components/Tree/TreeView'
-import { PersonCardExpanded } from './components/PersonCard/PersonCardExpanded'
-import { AddPersonForm, type AddPersonData } from './components/AddForm/AddPersonForm'
+import { PersonModal, type EditPersonData } from './components/PersonCard/PersonModal'
+import { AddRelativeModal, type AddRelativeData } from './components/AddForm/AddRelativeModal'
 import { SearchView } from './components/Search/SearchView'
 import { GalleryView } from './components/Gallery/GalleryView'
 import { buildFamilyGraph } from './utils/buildTree'
@@ -16,8 +16,8 @@ const REQUIRE_APPROVAL = false
 function TreePage() {
   const { id } = useParams()
   const { persons, relationships, loading, error } = useFamilyData()
-  const [expandedPersonId, setExpandedPersonId] = useState<string | null>(null)
-  const [addFormState, setAddFormState] = useState<{ relationType: string; relatedToId: string } | null>(null)
+  const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null)
+  const [showAddRelative, setShowAddRelative] = useState(false)
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle')
 
   const graph = useMemo(() => buildFamilyGraph(persons, relationships), [persons, relationships])
@@ -32,20 +32,19 @@ function TreePage() {
   if (persons.length === 0) return <div className="flex-1 flex items-center justify-center font-sans text-text-secondary">Inga personer ännu</div>
 
   const centerId = id ?? 'jens'
-  const expandedPerson = persons.find(p => p.id === expandedPersonId)
+  const selectedPerson = persons.find(p => p.id === selectedPersonId)
 
-  async function handleFormSubmit(data: AddPersonData) {
+  async function handleEditSave(data: EditPersonData) {
     setSubmitStatus('sending')
     try {
       const endpoint = REQUIRE_APPROVAL ? '/api/submit-contribution' : '/api/submit-direct'
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...data, relatedToId: addFormState?.relatedToId }),
+        body: JSON.stringify({ ...data, relationType: 'edit', relatedToId: selectedPersonId }),
       })
       if (!res.ok) throw new Error()
       setSubmitStatus('success')
-      setAddFormState(null)
       setTimeout(() => setSubmitStatus('idle'), 3000)
     } catch {
       setSubmitStatus('error')
@@ -53,74 +52,62 @@ function TreePage() {
     }
   }
 
-  function handleClose() {
-    setExpandedPersonId(null)
-    setAddFormState(null)
+  async function handleAddRelative(data: AddRelativeData) {
+    setSubmitStatus('sending')
+    try {
+      const endpoint = REQUIRE_APPROVAL ? '/api/submit-contribution' : '/api/submit-direct'
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...data, relatedToId: selectedPersonId }),
+      })
+      if (!res.ok) throw new Error()
+      setSubmitStatus('success')
+      setShowAddRelative(false)
+      setTimeout(() => setSubmitStatus('idle'), 3000)
+    } catch {
+      setSubmitStatus('error')
+      setTimeout(() => setSubmitStatus('idle'), 3000)
+    }
   }
 
-  const expandedCardElement = expandedPerson ? (
-    <PersonCardExpanded
-      person={expandedPerson}
-      relationLabel={getRelationLabel(graph, expandedPerson.id, persons)}
-      onClose={handleClose}
-      onEdit={() => {
-        setAddFormState({ relationType: 'edit', relatedToId: expandedPerson.id })
-        setExpandedPersonId(null)
-      }}
-    />
-  ) : null
-
   return (
-    <div className="flex-1 relative overflow-hidden" onClick={handleClose}>
+    <div className="flex-1 relative overflow-hidden">
       <TreeView
         persons={persons}
         relationships={relationships}
         centerId={centerId}
-        onPersonClick={(pid) => {
-          setExpandedPersonId(prev => prev === pid ? null : pid)
-          setAddFormState(null)
-        }}
-        onAdd={(personId, relationType) => {
-          setAddFormState({ relationType, relatedToId: personId })
-          setExpandedPersonId(null)
-        }}
-        expandedPersonId={expandedPersonId}
-        expandedCardContent={expandedCardElement}
+        onPersonClick={(pid) => setSelectedPersonId(pid)}
       />
 
-      {/* Mobile overlay for expanded person card */}
-      {expandedCardElement && (
-        <div
-          className="md:hidden fixed inset-0 z-30 flex items-end justify-center"
-          onClick={handleClose}
-        >
-          <div className="absolute inset-0 bg-black/20" />
-          <div
-            className="relative w-full max-w-sm mx-4 mb-4 animate-in"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {expandedCardElement}
-          </div>
-        </div>
+      {/* Person detail modal */}
+      {selectedPerson && !showAddRelative && (
+        <PersonModal
+          person={selectedPerson}
+          relationLabel={getRelationLabel(graph, selectedPerson.id, persons)}
+          onClose={() => setSelectedPersonId(null)}
+          onSave={handleEditSave}
+          onAddRelative={() => setShowAddRelative(true)}
+        />
       )}
 
-      {addFormState && (
-        <div className="absolute top-4 left-4 z-10" onClick={(e) => e.stopPropagation()}>
-          <AddPersonForm
-            relationType={addFormState.relationType}
-            onSubmit={handleFormSubmit}
-            onCancel={() => setAddFormState(null)}
-          />
-        </div>
+      {/* Add relative modal */}
+      {selectedPerson && showAddRelative && (
+        <AddRelativeModal
+          relatedPersonName={selectedPerson.firstName}
+          onSubmit={handleAddRelative}
+          onCancel={() => setShowAddRelative(false)}
+        />
       )}
 
+      {/* Status toasts */}
       {submitStatus === 'success' && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-accent text-white font-sans text-sm px-4 py-2 rounded-lg shadow-md z-20">
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-accent text-white font-sans text-sm px-4 py-2 rounded-lg shadow-md z-60">
           {REQUIRE_APPROVAL ? 'Tack! Ditt bidrag har skickats för granskning.' : 'Tack! Informationen har lagts till.'}
         </div>
       )}
       {submitStatus === 'error' && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-red-600 text-white font-sans text-sm px-4 py-2 rounded-lg shadow-md z-20">
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-red-600 text-white font-sans text-sm px-4 py-2 rounded-lg shadow-md z-60">
           Något gick fel. Försök igen.
         </div>
       )}

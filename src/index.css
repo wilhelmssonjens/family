@@ -23,26 +23,6 @@
   animation: animate-in 0.2s ease-out;
 }
 
-/* Show "+" buttons only on hover (desktop) or when tapped (mobile) */
-.person-card-group .add-buttons {
-  transition: opacity 0.2s ease;
-  pointer-events: none;
-}
-
-.person-card-group:hover .add-buttons {
-  opacity: 1 !important;
-  pointer-events: all;
-}
-
-/* On touch devices, show buttons when card is focused/active */
-@media (pointer: coarse) {
-  .person-card-group:active .add-buttons,
-  .person-card-group:focus-within .add-buttons {
-    opacity: 1 !important;
-    pointer-events: all;
-  }
-}
-
 /* Prevent text selection on mobile during drag */
 svg {
   -webkit-user-select: none;

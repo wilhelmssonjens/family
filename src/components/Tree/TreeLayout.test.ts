@@ -61,40 +61,43 @@ describe('computeTreeLayout', () => {
     expect(Math.abs(klaraNode!.y)).toBeLessThan(500);
   });
 
-  it('places Jens parents to the left of center', () => {
+  it('places Jens parents above Jens (negative y)', () => {
     const layout = computeTreeLayout(persons, relationships, 'jens');
     const jensNode = layout.find((n) => n.personId === 'jens');
     const jensFatherNode = layout.find((n) => n.personId === 'jens-father');
     expect(jensNode).toBeDefined();
     expect(jensFatherNode).toBeDefined();
-    // Parents should be positioned to the left (smaller x) or above (smaller y)
-    const parentIsLeft = jensFatherNode!.x < jensNode!.x;
-    const parentIsAbove = jensFatherNode!.y < jensNode!.y;
-    expect(parentIsLeft || parentIsAbove).toBe(true);
+    expect(jensFatherNode!.y).toBeLessThan(jensNode!.y);
   });
 
-  it('places Klara parents to the right of center', () => {
+  it('places Klara parents above Klara (negative y)', () => {
     const layout = computeTreeLayout(persons, relationships, 'jens');
     const klaraNode = layout.find((n) => n.personId === 'klara');
     const klaraFatherNode = layout.find((n) => n.personId === 'klara-father');
     expect(klaraNode).toBeDefined();
     expect(klaraFatherNode).toBeDefined();
-    // Parents should be to the right (larger x) or above (smaller y)
-    const parentIsRight = klaraFatherNode!.x > klaraNode!.x;
-    const parentIsAbove = klaraFatherNode!.y < klaraNode!.y;
-    expect(parentIsRight || parentIsAbove).toBe(true);
+    expect(klaraFatherNode!.y).toBeLessThan(klaraNode!.y);
   });
 
-  it('places siblings with vertical offset from each other', () => {
+  it('places siblings on the same y-level with different x', () => {
     const layout = computeTreeLayout(persons, relationships, 'jens');
     const jensNode = layout.find((n) => n.personId === 'jens');
     const siblingNode = layout.find((n) => n.personId === 'jens-sibling');
     expect(jensNode).toBeDefined();
     expect(siblingNode).toBeDefined();
-    // Siblings should have different positions
-    const differentX = jensNode!.x !== siblingNode!.x;
-    const differentY = jensNode!.y !== siblingNode!.y;
-    expect(differentX || differentY).toBe(true);
+    expect(siblingNode!.y).toBe(jensNode!.y);
+    expect(siblingNode!.x).not.toBe(jensNode!.x);
+  });
+
+  it('centers parents above children row', () => {
+    const layout = computeTreeLayout(persons, relationships, 'jens');
+    const jensNode = layout.find((n) => n.personId === 'jens')!;
+    const siblingNode = layout.find((n) => n.personId === 'jens-sibling')!;
+    const jensFatherNode = layout.find((n) => n.personId === 'jens-father')!;
+    const jensMotherNode = layout.find((n) => n.personId === 'jens-mother')!;
+    const parentCenterX = (jensFatherNode.x + jensMotherNode.x) / 2;
+    const childrenCenterX = (jensNode.x + siblingNode.x) / 2;
+    expect(parentCenterX).toBeCloseTo(childrenCenterX, 0);
   });
 
   it('includes all persons in the layout', () => {

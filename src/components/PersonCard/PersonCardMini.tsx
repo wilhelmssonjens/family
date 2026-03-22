@@ -8,8 +8,8 @@ interface Props {
   onClick: () => void
 }
 
-const CARD_WIDTH = 120
-const CARD_HEIGHT = 80
+const CARD_WIDTH = 140
+const CARD_HEIGHT = 90
 
 export function PersonCardMini({ person, x, y, onClick }: Props) {
   const initials = getInitials(person.firstName, person.lastName)
@@ -52,21 +52,32 @@ export function PersonCardMini({ person, x, y, onClick }: Props) {
 
         <text
           x={CARD_WIDTH / 2}
-          y={54}
+          y={52}
           textAnchor="middle"
-          fontSize={13}
+          fontSize={12}
           fontFamily="Lora, serif"
           fontWeight={600}
           fill="#3a3a3a"
         >
           {person.firstName}
         </text>
+        <text
+          x={CARD_WIDTH / 2}
+          y={66}
+          textAnchor="middle"
+          fontSize={11}
+          fontFamily="Lora, serif"
+          fontWeight={500}
+          fill="#555"
+        >
+          {person.lastName}
+        </text>
 
         <text
           x={CARD_WIDTH / 2}
-          y={70}
+          y={80}
           textAnchor="middle"
-          fontSize={11}
+          fontSize={10}
           fontFamily="Inter, sans-serif"
           fill="#777"
         >

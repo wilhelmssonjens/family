@@ -94,19 +94,22 @@ export function TreeView({ persons, relationships, centerId, onPersonClick }: Pr
           </filter>
         </defs>
         <g ref={gRef} transform={`translate(${transform.x}, ${transform.y}) scale(${transform.k})`}>
-          {/* Partner links */}
-          {partnerLinks.map((link, i) => (
-            <line
-              key={`partner-${i}`}
-              x1={link.x1} y1={link.y1}
-              x2={link.x2} y2={link.y2}
-              stroke="#c4a77d"
-              strokeWidth={2}
-              strokeDasharray="6,4"
-            />
-          ))}
+          {/* Partner links (horizontal with 90-degree elbows) */}
+          {partnerLinks.map((link, i) => {
+            const midX = (link.x1 + link.x2) / 2
+            return (
+              <path
+                key={`partner-${i}`}
+                d={`M ${link.x1},${link.y1} H ${midX} V ${link.y2} H ${link.x2}`}
+                stroke="#c4a77d"
+                strokeWidth={2}
+                strokeDasharray="6,4"
+                fill="none"
+              />
+            )
+          })}
 
-          {/* Parent-child bracket lines */}
+          {/* Parent-child bracket lines (orthogonal 90-degree connectors) */}
           {brackets.map((group, i) => {
             const parentNodes = group.parentIds
               .map(id => nodes.find(n => n.personId === id))
@@ -122,12 +125,12 @@ export function TreeView({ persons, relationships, centerId, onPersonClick }: Pr
             const junctionY = parentCenterY + 0.4 * (avgChildY - parentCenterY)
 
             if (childNodes.length === 1) {
+              const child = childNodes[0]
               return (
-                <line
+                <path
                   key={`bracket-${i}`}
-                  x1={parentCenterX} y1={parentCenterY}
-                  x2={childNodes[0].x} y2={childNodes[0].y}
-                  stroke="#aaa" strokeWidth={1.5}
+                  d={`M ${parentCenterX},${parentCenterY} V ${junctionY} H ${child.x} V ${child.y}`}
+                  stroke="#aaa" strokeWidth={1.5} fill="none"
                 />
               )
             }

@@ -31,6 +31,19 @@ Horisontell trädvy renderad med D3.js i SVG. Jens & Klara i mitten, Jens släkt
 ### Kollisionshantering
 `findFreeSlot()` spårar upptagna y-positioner per x-kolumn och söker utåt från preferred position.
 
+## Kopplingslinjer
+
+Alla kopplingar mellan personer ritas med **orthogonala (rätvinkliga) linjer** — inga diagonaler.
+
+- **Partner-kopplingar**: Streckade linjer (`#c4a77d`) med 90-graders armbågar (H → V → H)
+- **Förälder-barn**: SVG `<path>` med vertikala och horisontella segment (V → H → V)
+- **Bracket-grupper** (flera barn): Vertikal linje från föräldracentrum till junction-Y, horisontell linje som spänner alla barn, vertikala linjer ner till varje barn
+
+## Personkort (PersonCardMini)
+
+- Storlek: 140×90px med rundade hörn (8px) och grön ram
+- Visar: initialer (cirkel), **förnamn + efternamn** (Lora serif), födelseår/dödsår (Inter sans-serif)
+
 ## Pan/Zoom
 - d3-zoom med scaleExtent [0.3, 3]
 - Centreras på Jens & Klara vid laddning

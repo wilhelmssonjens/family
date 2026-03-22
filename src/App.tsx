@@ -52,6 +52,25 @@ function TreePage() {
     }
   }
 
+  async function handleDelete() {
+    setSubmitStatus('sending')
+    try {
+      const endpoint = REQUIRE_APPROVAL ? '/api/submit-contribution' : '/api/submit-direct'
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ relationType: 'delete', relatedToId: selectedPersonId }),
+      })
+      if (!res.ok) throw new Error()
+      setSubmitStatus('success')
+      setSelectedPersonId(null)
+      setTimeout(() => setSubmitStatus('idle'), 3000)
+    } catch {
+      setSubmitStatus('error')
+      setTimeout(() => setSubmitStatus('idle'), 3000)
+    }
+  }
+
   async function handleAddRelative(data: AddRelativeData) {
     setSubmitStatus('sending')
     try {
@@ -87,6 +106,7 @@ function TreePage() {
           relationLabel={getRelationLabel(graph, selectedPerson.id, persons)}
           onClose={() => setSelectedPersonId(null)}
           onSave={handleEditSave}
+          onDelete={handleDelete}
           onAddRelative={() => setShowAddRelative(true)}
         />
       )}

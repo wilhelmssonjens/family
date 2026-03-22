@@ -72,14 +72,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(429).json({ error: 'För många förfrågningar. Försök igen senare.' })
   }
 
-  const { firstName, lastName, relationType, honeypot, relatedToId, ...rest } = req.body
+  const { firstName, lastName, relationType, honeypot, relatedToId, gender, ...rest } = req.body
 
   if (honeypot) {
     return res.status(200).json({ success: true })
-  }
-
-  if (!firstName || !lastName) {
-    return res.status(400).json({ error: 'Förnamn och efternamn krävs.' })
   }
 
   if (!GITHUB_TOKEN || !REPO_OWNER || !REPO_NAME) {
@@ -95,10 +91,93 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(500).json({ error: 'Kunde inte läsa data.' })
     }
 
-    const persons = JSON.parse(personsFile.content)
-    const relationships = JSON.parse(relsFile.content)
+    let persons = JSON.parse(personsFile.content)
+    let relationships = JSON.parse(relsFile.content)
 
-    // Create new person
+    // --- DELETE ---
+    if (relationType === 'delete') {
+      if (!relatedToId) {
+        return res.status(400).json({ error: 'Person-ID krävs för borttagning.' })
+      }
+      const personToDelete = persons.find((p: any) => p.id === relatedToId)
+      if (!personToDelete) {
+        return res.status(404).json({ error: 'Personen hittades inte.' })
+      }
+
+      persons = persons.filter((p: any) => p.id !== relatedToId)
+      relationships = relationships.filter(
+        (r: any) => r.from !== relatedToId && r.to !== relatedToId
+      )
+
+      const personsOk = await updateFile(
+        'public/data/persons.json',
+        JSON.stringify(persons, null, 2) + '\n',
+        personsFile.sha,
+        `Ta bort ${personToDelete.firstName} ${personToDelete.lastName}`,
+      )
+      if (!personsOk) {
+        return res.status(500).json({ error: 'Kunde inte spara.' })
+      }
+
+      const relsFileUpdated = await getFile('public/data/relationships.json')
+      if (!relsFileUpdated) {
+        return res.status(500).json({ error: 'Kunde inte läsa relationer.' })
+      }
+      const relsOk = await updateFile(
+        'public/data/relationships.json',
+        JSON.stringify(relationships, null, 2) + '\n',
+        relsFileUpdated.sha,
+        `Ta bort relationer för ${personToDelete.firstName} ${personToDelete.lastName}`,
+      )
+      if (!relsOk) {
+        return res.status(500).json({ error: 'Kunde inte spara relationer.' })
+      }
+
+      return res.status(200).json({ success: true })
+    }
+
+    // --- EDIT ---
+    if (relationType === 'edit') {
+      if (!relatedToId) {
+        return res.status(400).json({ error: 'Person-ID krävs för redigering.' })
+      }
+      const personIndex = persons.findIndex((p: any) => p.id === relatedToId)
+      if (personIndex === -1) {
+        return res.status(404).json({ error: 'Personen hittades inte.' })
+      }
+
+      const existing = persons[personIndex]
+      persons[personIndex] = {
+        ...existing,
+        firstName: firstName || existing.firstName,
+        lastName: lastName || existing.lastName,
+        birthName: rest.birthName || null,
+        birthDate: rest.birthDate || null,
+        birthPlace: rest.birthPlace || null,
+        deathDate: rest.deathDate || null,
+        deathPlace: rest.deathPlace || null,
+        occupation: rest.occupation || null,
+        contactInfo: rest.contactInfo || null,
+      }
+
+      const personsOk = await updateFile(
+        'public/data/persons.json',
+        JSON.stringify(persons, null, 2) + '\n',
+        personsFile.sha,
+        `Redigera ${persons[personIndex].firstName} ${persons[personIndex].lastName}`,
+      )
+      if (!personsOk) {
+        return res.status(500).json({ error: 'Kunde inte spara ändringarna.' })
+      }
+
+      return res.status(200).json({ success: true, personId: relatedToId })
+    }
+
+    // --- ADD NEW PERSON ---
+    if (!firstName || !lastName) {
+      return res.status(400).json({ error: 'Förnamn och efternamn krävs.' })
+    }
+
     const newId = generateId(firstName, lastName)
     const newPerson = {
       id: newId,
@@ -109,12 +188,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       birthPlace: rest.birthPlace || null,
       deathDate: rest.deathDate || null,
       deathPlace: rest.deathPlace || null,
-      gender: 'other',
+      gender: gender || 'other',
       occupation: rest.occupation || null,
       photos: [],
       stories: rest.story ? [{ title: 'Berättelse', text: rest.story }] : [],
       contactInfo: null,
-      familySide: 'jens', // Default, can be changed later
+      familySide: 'jens',
     }
 
     // Determine familySide from related person
@@ -131,8 +210,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (relatedToId && relationType) {
       if (relationType === 'parent') {
         relationships.push({ type: 'parent', from: newId, to: relatedToId })
+      } else if (relationType === 'child') {
+        relationships.push({ type: 'parent', from: relatedToId, to: newId })
       } else if (relationType === 'sibling') {
-        // Find parents of relatedTo and add same parents
         const parentRels = relationships.filter(
           (r: any) => r.type === 'parent' && r.to === relatedToId
         )

@@ -20,11 +20,13 @@ interface Props {
   relationLabel: string
   onClose: () => void
   onSave: (data: EditPersonData) => void
+  onDelete: () => void
   onAddRelative: () => void
 }
 
-export function PersonModal({ person, relationLabel, onClose, onSave, onAddRelative }: Props) {
+export function PersonModal({ person, relationLabel, onClose, onSave, onDelete, onAddRelative }: Props) {
   const [editing, setEditing] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const [expandedStory, setExpandedStory] = useState<number | null>(null)
   const [form, setForm] = useState<EditPersonData>({
     firstName: person.firstName,
@@ -94,6 +96,29 @@ export function PersonModal({ person, relationLabel, onClose, onSave, onAddRelat
             <EditField label="Kontakt" value={form.contactInfo} onChange={(v) => updateField('contactInfo', v)} inputClass={inputClass} />
           </div>
 
+          {/* Delete confirmation */}
+          {confirmDelete && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm font-sans text-red-800 mb-2">
+                Är du säker på att du vill ta bort {person.firstName}? Alla relationer tas också bort.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={onDelete}
+                  className="text-sm font-sans bg-red-600 text-white px-3 py-1.5 rounded-lg hover:bg-red-700 transition-colors"
+                >
+                  Ja, ta bort
+                </button>
+                <button
+                  onClick={() => setConfirmDelete(false)}
+                  className="text-sm font-sans text-text-secondary px-3 py-1.5 rounded-lg hover:bg-bg-secondary transition-colors"
+                >
+                  Avbryt
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Actions */}
           <div className="flex gap-2 pt-2 border-t border-bg-secondary">
             <button
@@ -108,6 +133,14 @@ export function PersonModal({ person, relationLabel, onClose, onSave, onAddRelat
             >
               Avbryt
             </button>
+            {!confirmDelete && (
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="text-sm font-sans text-red-600 px-3 py-2 rounded-lg hover:bg-red-50 transition-colors"
+              >
+                Ta bort
+              </button>
+            )}
           </div>
         </div>
       </Modal>

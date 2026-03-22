@@ -72,6 +72,9 @@ export function computeTreeLayout(
     addLink(nodes, centerId, childId, 'parent-child')
   })
 
+  // Place unvisited partners next to their already-placed partner
+  placeUnvisitedPartners(graph, nodes, visited)
+
   return Array.from(nodes.values())
 }
 
@@ -123,9 +126,6 @@ function expandAncestorsByGeneration(
         const sibX = childNode.x + (j + 1) * SIBLING_GAP * direction
         placeNode(sibId, sibX, childNode.y, graph, nodes)
         visited.add(sibId)
-        for (const pid of parentIds) {
-          addLink(nodes, pid, sibId, 'parent-child')
-        }
       })
 
       // Center parent couple above the entire children row
@@ -134,11 +134,14 @@ function expandAncestorsByGeneration(
       const maxX = Math.max(...allChildrenX)
       const centerX = (minX + maxX) / 2
 
+      // Place parents (must happen before adding links to siblings)
+      const placedParentIds: string[] = []
       if (parentIds.length >= 2) {
         placeNode(parentIds[0], centerX - PARTNER_GAP / 2, genY, graph, nodes)
         placeNode(parentIds[1], centerX + PARTNER_GAP / 2, genY, graph, nodes)
         visited.add(parentIds[0])
         visited.add(parentIds[1])
+        placedParentIds.push(parentIds[0], parentIds[1])
 
         addLink(nodes, parentIds[0], parentIds[1], 'partner')
         addLink(nodes, parentIds[0], childId, 'parent-child')
@@ -146,15 +149,83 @@ function expandAncestorsByGeneration(
 
         nextGenPersons.push(parentIds[0], parentIds[1])
       } else {
-        placeNode(parentIds[0], centerX, genY, graph, nodes)
-        visited.add(parentIds[0])
-        addLink(nodes, parentIds[0], childId, 'parent-child')
-        nextGenPersons.push(parentIds[0])
+        // Single parent found — check if they have an unvisited partner
+        const singleParent = graph.get(parentIds[0])
+        const unvisitedPartner = singleParent?.partnerIds.find(id => !visited.has(id))
+
+        if (unvisitedPartner) {
+          placeNode(parentIds[0], centerX - PARTNER_GAP / 2, genY, graph, nodes)
+          placeNode(unvisitedPartner, centerX + PARTNER_GAP / 2, genY, graph, nodes)
+          visited.add(parentIds[0])
+          visited.add(unvisitedPartner)
+          placedParentIds.push(parentIds[0], unvisitedPartner)
+
+          addLink(nodes, parentIds[0], unvisitedPartner, 'partner')
+          addLink(nodes, parentIds[0], childId, 'parent-child')
+
+          // Add parent-child link from partner if they are also a parent
+          const partnerNode = graph.get(unvisitedPartner)
+          if (partnerNode?.childIds.includes(childId)) {
+            addLink(nodes, unvisitedPartner, childId, 'parent-child')
+          }
+
+          nextGenPersons.push(parentIds[0], unvisitedPartner)
+        } else {
+          placeNode(parentIds[0], centerX, genY, graph, nodes)
+          visited.add(parentIds[0])
+          placedParentIds.push(parentIds[0])
+          addLink(nodes, parentIds[0], childId, 'parent-child')
+          nextGenPersons.push(parentIds[0])
+        }
+      }
+
+      // Now add parent-child links from parents to siblings (parents are placed now)
+      for (const sibId of siblings) {
+        for (const pid of placedParentIds) {
+          const parentGraphNode = graph.get(pid)
+          if (parentGraphNode?.childIds.includes(sibId)) {
+            addLink(nodes, pid, sibId, 'parent-child')
+          }
+        }
       }
     }
 
     currentGenPersons = nextGenPersons
     generation++
+  }
+}
+
+/**
+ * Find all placed nodes whose partners are not yet placed,
+ * and place those partners beside them.
+ */
+function placeUnvisitedPartners(
+  graph: FamilyGraph,
+  nodes: Map<string, LayoutNode>,
+  visited: Set<string>,
+) {
+  for (const [personId, layoutNode] of nodes) {
+    const familyNode = graph.get(personId)
+    if (!familyNode) continue
+
+    for (const partnerId of familyNode.partnerIds) {
+      if (visited.has(partnerId)) continue
+
+      const partnerX = layoutNode.x + PARTNER_GAP
+      placeNode(partnerId, partnerX, layoutNode.y, graph, nodes)
+      visited.add(partnerId)
+      addLink(nodes, personId, partnerId, 'partner')
+
+      // Also add parent-child links from the partner to children already placed
+      const partnerFamilyNode = graph.get(partnerId)
+      if (partnerFamilyNode) {
+        for (const childId of partnerFamilyNode.childIds) {
+          if (nodes.has(childId)) {
+            addLink(nodes, partnerId, childId, 'parent-child')
+          }
+        }
+      }
+    }
   }
 }
 

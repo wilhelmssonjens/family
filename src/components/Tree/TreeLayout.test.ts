@@ -106,4 +106,35 @@ describe('computeTreeLayout', () => {
     const personIds = persons.map((p) => p.id).sort();
     expect(layoutIds).toEqual(personIds);
   });
+
+  it('places partner of single parent (only one parent-relation to child)', () => {
+    // Tor is Klara's only parent, but Tor has a partner Lena
+    const p = [
+      makePerson({ id: 'jens', firstName: 'Jens' }),
+      makePerson({ id: 'klara', firstName: 'Klara', gender: 'female' }),
+      makePerson({ id: 'tor', firstName: 'Tor' }),
+      makePerson({ id: 'lena', firstName: 'Lena', gender: 'female' }),
+    ];
+    const r: Relationship[] = [
+      { type: 'partner', from: 'jens', to: 'klara', status: 'current' },
+      { type: 'parent', from: 'tor', to: 'klara' },
+      { type: 'partner', from: 'tor', to: 'lena', status: 'current' },
+    ];
+    const layout = computeTreeLayout(p, r, 'jens');
+    const lenaNode = layout.find(n => n.personId === 'lena');
+    const torNode = layout.find(n => n.personId === 'tor');
+    expect(lenaNode).toBeDefined();
+    expect(torNode).toBeDefined();
+    expect(lenaNode!.y).toBe(torNode!.y);
+  });
+
+  it('creates parent-child links from both parents to all siblings', () => {
+    const layout = computeTreeLayout(persons, relationships, 'jens');
+    const fatherNode = layout.find(n => n.personId === 'jens-father')!;
+    const motherNode = layout.find(n => n.personId === 'jens-mother')!;
+    const siblingLinks = fatherNode.links.filter(l => l.targetId === 'jens-sibling' && l.type === 'parent-child');
+    const motherSiblingLinks = motherNode.links.filter(l => l.targetId === 'jens-sibling' && l.type === 'parent-child');
+    expect(siblingLinks.length).toBeGreaterThan(0);
+    expect(motherSiblingLinks.length).toBeGreaterThan(0);
+  });
 });

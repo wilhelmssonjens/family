@@ -109,5 +109,15 @@
     "from": "tor-ahlbck",
     "to": "lena-ahlbck",
     "status": "current"
+  },
+  {
+    "type": "parent",
+    "from": "per",
+    "to": "eva"
+  },
+  {
+    "type": "parent",
+    "from": "laila",
+    "to": "eva"
   }
 ]

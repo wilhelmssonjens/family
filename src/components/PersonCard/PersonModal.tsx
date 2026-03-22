@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
 import { Modal } from '../Modal/Modal'
+import { NameSuggestInput } from '../NameSuggestInput'
 import { formatLifespan, formatFullName, getInitials } from '../../utils/formatPerson'
 import { compressImage } from '../../utils/compressImage'
 import type { Person, Story } from '../../types'
@@ -20,6 +21,7 @@ export interface EditPersonData {
 
 interface Props {
   person: Person
+  persons: Person[]
   relationLabel: string
   onClose: () => void
   onSave: (data: EditPersonData) => void
@@ -27,7 +29,7 @@ interface Props {
   onAddRelative: () => void
 }
 
-export function PersonModal({ person, relationLabel, onClose, onSave, onDelete, onAddRelative }: Props) {
+export function PersonModal({ person, persons, relationLabel, onClose, onSave, onDelete, onAddRelative }: Props) {
   const [editing, setEditing] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [expandedStory, setExpandedStory] = useState<number | null>(null)
@@ -136,8 +138,14 @@ export function PersonModal({ person, relationLabel, onClose, onSave, onDelete, 
 
           {/* Edit form */}
           <div className="space-y-3 mb-5">
-            <EditField label="Förnamn" value={form.firstName} onChange={(v) => updateField('firstName', v)} inputClass={inputClass} required />
-            <EditField label="Efternamn" value={form.lastName} onChange={(v) => updateField('lastName', v)} inputClass={inputClass} required />
+            <div className="flex gap-3 items-center text-sm font-sans">
+              <label className="text-text-secondary w-28 flex-shrink-0">Förnamn</label>
+              <NameSuggestInput className={inputClass} value={form.firstName} onChange={(v) => updateField('firstName', v)} suggestions={persons.map(p => p.firstName)} required />
+            </div>
+            <div className="flex gap-3 items-center text-sm font-sans">
+              <label className="text-text-secondary w-28 flex-shrink-0">Efternamn</label>
+              <NameSuggestInput className={inputClass} value={form.lastName} onChange={(v) => updateField('lastName', v)} suggestions={persons.map(p => p.lastName)} required />
+            </div>
             <EditField label="Födnamn" value={form.birthName} onChange={(v) => updateField('birthName', v)} inputClass={inputClass} placeholder="Om annat än nuvarande" />
             <EditField label="Födelsedatum" value={form.birthDate} onChange={(v) => updateField('birthDate', v)} inputClass={inputClass} placeholder="ÅÅÅÅ-MM-DD" />
             <EditField label="Födelseort" value={form.birthPlace} onChange={(v) => updateField('birthPlace', v)} inputClass={inputClass} />

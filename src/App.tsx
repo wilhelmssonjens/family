@@ -188,6 +188,7 @@ function TreePage() {
       {selectedPerson && !showAddRelative && (
         <PersonModal
           person={selectedPerson}
+          persons={persons}
           relationLabel={getRelationLabel(graph, selectedPerson.id, persons)}
           onClose={() => setSelectedPersonId(null)}
           onSave={handleEditSave}

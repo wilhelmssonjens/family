@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Modal } from '../Modal/Modal'
+import { NameSuggestInput } from '../NameSuggestInput'
 import type { Person } from '../../types'
 
 export interface AddRelativeData {
@@ -241,8 +242,8 @@ export function AddRelativeModal({ relatedPersonName, relatedPersonId, persons, 
 
             {/* Name fields */}
             <div className="flex flex-col gap-2 mb-3">
-              <input className={inputClass} placeholder="Förnamn *" value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
-              <input className={inputClass} placeholder="Efternamn *" value={lastName} onChange={(e) => setLastName(e.target.value)} required />
+              <NameSuggestInput className={inputClass} placeholder="Förnamn *" value={firstName} onChange={setFirstName} suggestions={persons.map(p => p.firstName)} required />
+              <NameSuggestInput className={inputClass} placeholder="Efternamn *" value={lastName} onChange={setLastName} suggestions={persons.map(p => p.lastName)} required />
             </div>
 
             {/* Toggle details */}

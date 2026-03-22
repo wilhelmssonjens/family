@@ -206,5 +206,21 @@
     "stories": [],
     "contactInfo": null,
     "familySide": "jens"
+  },
+  {
+    "id": "tor-ahlbck",
+    "firstName": "Tor",
+    "lastName": "Ahlbäck",
+    "birthName": null,
+    "birthDate": "19631128",
+    "birthPlace": null,
+    "deathDate": null,
+    "deathPlace": null,
+    "gender": "male",
+    "occupation": null,
+    "photos": [],
+    "stories": [],
+    "contactInfo": null,
+    "familySide": "center"
   }
 ]

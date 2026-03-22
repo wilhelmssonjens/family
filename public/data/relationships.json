@@ -119,5 +119,10 @@
     "type": "parent",
     "from": "lena-ahlbck",
     "to": "erik-ahlbck"
+  },
+  {
+    "type": "parent",
+    "from": "birgitta",
+    "to": "hampus-wikmark"
   }
 ]

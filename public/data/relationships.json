@@ -103,5 +103,11 @@
     "type": "parent",
     "from": "tor-ahlbck",
     "to": "klara"
+  },
+  {
+    "type": "partner",
+    "from": "tor-ahlbck",
+    "to": "lena-ahlbck",
+    "status": "current"
   }
 ]

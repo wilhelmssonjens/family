@@ -72,7 +72,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(429).json({ error: 'För många förfrågningar. Försök igen senare.' })
   }
 
-  const { firstName, lastName, relationType, honeypot, relatedToId, gender, ...rest } = req.body
+  const { firstName, lastName, relationType, honeypot, relatedToId, gender, existingPersonId, ...rest } = req.body
 
   if (honeypot) {
     return res.status(200).json({ success: true })
@@ -173,6 +173,47 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       return res.status(200).json({ success: true, personId: relatedToId })
+    }
+
+    // --- LINK EXISTING PERSON ---
+    if (relationType === 'link') {
+      if (!relatedToId || !existingPersonId) {
+        return res.status(400).json({ error: 'Båda person-ID krävs för koppling.' })
+      }
+
+      const fromPerson = persons.find((p: any) => p.id === relatedToId)
+      const toPerson = persons.find((p: any) => p.id === existingPersonId)
+      if (!fromPerson || !toPerson) {
+        return res.status(404).json({ error: 'En eller båda personerna hittades inte.' })
+      }
+
+      const linkType = rest.linkRelationType as string
+      if (linkType === 'parent') {
+        relationships.push({ type: 'parent', from: existingPersonId, to: relatedToId })
+      } else if (linkType === 'child') {
+        relationships.push({ type: 'parent', from: relatedToId, to: existingPersonId })
+      } else if (linkType === 'sibling') {
+        const parentRels = relationships.filter(
+          (r: any) => r.type === 'parent' && r.to === relatedToId
+        )
+        for (const pr of parentRels) {
+          relationships.push({ type: 'parent', from: pr.from, to: existingPersonId })
+        }
+      } else if (linkType === 'partner') {
+        relationships.push({ type: 'partner', from: relatedToId, to: existingPersonId, status: 'current' })
+      }
+
+      const relsOk = await updateFile(
+        'public/data/relationships.json',
+        JSON.stringify(relationships, null, 2) + '\n',
+        relsFile.sha,
+        `Koppla ${fromPerson.firstName} ${fromPerson.lastName} till ${toPerson.firstName} ${toPerson.lastName}`,
+      )
+      if (!relsOk) {
+        return res.status(500).json({ error: 'Kunde inte spara relationen.' })
+      }
+
+      return res.status(200).json({ success: true, personId: existingPersonId })
     }
 
     // --- ADD NEW PERSON ---

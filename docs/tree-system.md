@@ -55,7 +55,9 @@ Klick på ett PersonCardMini-kort i trädet öppnar en centrerad modal (PersonMo
 
 1. **Visning**: Foto/initialer, namn, födelse/dödsinfo, yrke, berättelser, kontaktinfo. Knappar: Redigera, Lägg till släkting, Stäng.
 2. **Redigering**: Alla fält blir redigerbara inline. Knappar: Spara, Avbryt.
-3. **Lägg till släkting**: Öppnar AddRelativeModal med relationstypväljare (förälder/syskon/partner/barn), kön-väljare och formulärfält.
+3. **Lägg till släkting**: Öppnar AddRelativeModal med relationstypväljare (förälder/syskon/partner/barn). Två lägen:
+   - **Ny person**: Kön-väljare + formulärfält (skapar ny person + relation)
+   - **Befintlig person**: Sökruta som filtrerar bland alla personer (skapar bara en relation via `relationType: 'link'` i API:et)
 
 Modaler renderas som DOM-element ovanpå SVG-trädet (inte via foreignObject), vilket ger konsekvent beteende på desktop och mobil.
 

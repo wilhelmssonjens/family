@@ -10,6 +10,7 @@ interface FamilyDataState {
   updatePerson: (id: string, data: Partial<Person>) => void
   removePerson: (id: string) => void
   addPerson: (person: Person, newRelationships: Relationship[]) => void
+  addRelationships: (newRelationships: Relationship[]) => void
 }
 
 const FamilyDataContext = createContext<FamilyDataState | null>(null)
@@ -63,10 +64,14 @@ export function FamilyDataProvider({ children }: { children: ReactNode }) {
     setRelationships(prev => [...prev, ...newRelationships])
   }, [])
 
+  const addRelationships = useCallback((newRelationships: Relationship[]) => {
+    setRelationships(prev => [...prev, ...newRelationships])
+  }, [])
+
   return (
     <FamilyDataContext.Provider value={{
       persons, relationships, loading, error,
-      getPersonById, updatePerson, removePerson, addPerson,
+      getPersonById, updatePerson, removePerson, addPerson, addRelationships,
     }}>
       {children}
     </FamilyDataContext.Provider>

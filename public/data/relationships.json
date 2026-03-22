@@ -109,5 +109,10 @@
     "from": "tor-ahlbck",
     "to": "lena-ahlbck",
     "status": "current"
+  },
+  {
+    "type": "parent",
+    "from": "lena-ahlbck",
+    "to": "klara"
   }
 ]

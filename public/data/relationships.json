@@ -114,5 +114,10 @@
     "type": "parent",
     "from": "lena-ahlbck",
     "to": "klara"
+  },
+  {
+    "type": "parent",
+    "from": "lena-ahlbck",
+    "to": "erik-ahlbck"
   }
 ]

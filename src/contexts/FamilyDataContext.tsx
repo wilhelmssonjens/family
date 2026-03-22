@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react'
 import type { Person, Relationship } from '../types'
 
 interface FamilyDataState {
@@ -7,6 +7,9 @@ interface FamilyDataState {
   loading: boolean
   error: string | null
   getPersonById: (id: string) => Person | undefined
+  updatePerson: (id: string, data: Partial<Person>) => void
+  removePerson: (id: string) => void
+  addPerson: (person: Person, newRelationships: Relationship[]) => void
 }
 
 const FamilyDataContext = createContext<FamilyDataState | null>(null)
@@ -46,8 +49,25 @@ export function FamilyDataProvider({ children }: { children: ReactNode }) {
     return persons.find((p) => p.id === id)
   }
 
+  const updatePerson = useCallback((id: string, data: Partial<Person>) => {
+    setPersons(prev => prev.map(p => p.id === id ? { ...p, ...data } : p))
+  }, [])
+
+  const removePerson = useCallback((id: string) => {
+    setPersons(prev => prev.filter(p => p.id !== id))
+    setRelationships(prev => prev.filter(r => r.from !== id && r.to !== id))
+  }, [])
+
+  const addPerson = useCallback((person: Person, newRelationships: Relationship[]) => {
+    setPersons(prev => [...prev, person])
+    setRelationships(prev => [...prev, ...newRelationships])
+  }, [])
+
   return (
-    <FamilyDataContext.Provider value={{ persons, relationships, loading, error, getPersonById }}>
+    <FamilyDataContext.Provider value={{
+      persons, relationships, loading, error,
+      getPersonById, updatePerson, removePerson, addPerson,
+    }}>
       {children}
     </FamilyDataContext.Provider>
   )

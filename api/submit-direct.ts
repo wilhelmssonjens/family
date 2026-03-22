@@ -58,6 +58,18 @@ async function updateFile(path: string, content: string, sha: string, message: s
   return res.ok
 }
 
+function relationExists(relationships: any[], type: string, from: string, to: string): boolean {
+  return relationships.some((r: any) =>
+    r.type === type && r.from === from && r.to === to
+  )
+}
+
+function addRelationIfNew(relationships: any[], rel: { type: string; from: string; to: string; status?: string }) {
+  if (!relationExists(relationships, rel.type, rel.from, rel.to)) {
+    relationships.push(rel)
+  }
+}
+
 function generateId(firstName: string, lastName: string): string {
   return `${firstName}-${lastName}`.toLowerCase().replace(/[^a-z0-9-]/g, '').replace(/-+/g, '-')
 }
@@ -189,18 +201,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const linkType = rest.linkRelationType as string
       if (linkType === 'parent') {
-        relationships.push({ type: 'parent', from: existingPersonId, to: relatedToId })
+        addRelationIfNew(relationships, { type: 'parent', from: existingPersonId, to: relatedToId })
       } else if (linkType === 'child') {
-        relationships.push({ type: 'parent', from: relatedToId, to: existingPersonId })
+        addRelationIfNew(relationships, { type: 'parent', from: relatedToId, to: existingPersonId })
       } else if (linkType === 'sibling') {
         const parentRels = relationships.filter(
           (r: any) => r.type === 'parent' && r.to === relatedToId
         )
         for (const pr of parentRels) {
-          relationships.push({ type: 'parent', from: pr.from, to: existingPersonId })
+          addRelationIfNew(relationships, { type: 'parent', from: pr.from, to: existingPersonId })
         }
       } else if (linkType === 'partner') {
-        relationships.push({ type: 'partner', from: relatedToId, to: existingPersonId, status: 'current' })
+        addRelationIfNew(relationships, { type: 'partner', from: relatedToId, to: existingPersonId, status: 'current' })
       }
 
       const relsOk = await updateFile(
@@ -252,18 +264,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Add relationship if we know how they're related
     if (relatedToId && relationType) {
       if (relationType === 'parent') {
-        relationships.push({ type: 'parent', from: newId, to: relatedToId })
+        addRelationIfNew(relationships, { type: 'parent', from: newId, to: relatedToId })
       } else if (relationType === 'child') {
-        relationships.push({ type: 'parent', from: relatedToId, to: newId })
+        addRelationIfNew(relationships, { type: 'parent', from: relatedToId, to: newId })
       } else if (relationType === 'sibling') {
         const parentRels = relationships.filter(
           (r: any) => r.type === 'parent' && r.to === relatedToId
         )
         for (const pr of parentRels) {
-          relationships.push({ type: 'parent', from: pr.from, to: newId })
+          addRelationIfNew(relationships, { type: 'parent', from: pr.from, to: newId })
         }
       } else if (relationType === 'partner') {
-        relationships.push({ type: 'partner', from: relatedToId, to: newId, status: 'current' })
+        addRelationIfNew(relationships, { type: 'partner', from: relatedToId, to: newId, status: 'current' })
       }
     }
 

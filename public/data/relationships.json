@@ -98,5 +98,10 @@
     "type": "parent",
     "from": "augusta",
     "to": "gunnar-w"
+  },
+  {
+    "type": "parent",
+    "from": "tor-ahlbck",
+    "to": "klara"
   }
 ]

@@ -1,4 +1,5 @@
-import { computeTreeLayout } from './TreeLayout';
+import { computeTreeLayout, isAncestorOf, buildGroupTree } from './TreeLayout';
+import { buildFamilyGraph } from '../../utils/buildTree';
 import type { Person, Relationship } from '../../types';
 
 const makePerson = (overrides: Partial<Person> & { id: string }): Person => ({
@@ -288,5 +289,139 @@ describe('computeTreeLayout', () => {
     const motherSiblingLinks = motherNode.links.filter(l => l.targetId === 'jens-sibling' && l.type === 'parent-child');
     expect(siblingLinks.length).toBeGreaterThan(0);
     expect(motherSiblingLinks.length).toBeGreaterThan(0);
+  });
+});
+
+describe('isAncestorOf', () => {
+  it('returns true for direct parent', () => {
+    const p = [makePerson({ id: 'dad' }), makePerson({ id: 'child' })];
+    const r: Relationship[] = [{ type: 'parent', from: 'dad', to: 'child' }];
+    const graph = buildFamilyGraph(p, r);
+    expect(isAncestorOf(graph, 'dad', 'child')).toBe(true);
+  });
+
+  it('returns true for grandparent', () => {
+    const p = [makePerson({ id: 'gp' }), makePerson({ id: 'par' }), makePerson({ id: 'child' })];
+    const r: Relationship[] = [
+      { type: 'parent', from: 'gp', to: 'par' },
+      { type: 'parent', from: 'par', to: 'child' },
+    ];
+    const graph = buildFamilyGraph(p, r);
+    expect(isAncestorOf(graph, 'gp', 'child')).toBe(true);
+  });
+
+  it('returns false for non-ancestor', () => {
+    const p = [makePerson({ id: 'a' }), makePerson({ id: 'b' })];
+    const graph = buildFamilyGraph(p, []);
+    expect(isAncestorOf(graph, 'a', 'b')).toBe(false);
+  });
+
+  it('returns false for self', () => {
+    const p = [makePerson({ id: 'a' })];
+    const graph = buildFamilyGraph(p, []);
+    expect(isAncestorOf(graph, 'a', 'a')).toBe(false);
+  });
+});
+
+describe('buildGroupTree', () => {
+  it('creates center group with partner and no children', () => {
+    const p = [makePerson({ id: 'a' }), makePerson({ id: 'b', gender: 'female' })];
+    const r: Relationship[] = [{ type: 'partner', from: 'a', to: 'b', status: 'current' }];
+    const graph = buildFamilyGraph(p, r);
+    const { center, ancestorGroups } = buildGroupTree(graph, 'a');
+    expect(center.parents).toContain('a');
+    expect(center.parents).toContain('b');
+    expect(center.children).toEqual([]);
+    expect(ancestorGroups.size).toBe(0);
+  });
+
+  it('builds ancestor group for center person with parents', () => {
+    const p = [
+      makePerson({ id: 'child' }),
+      makePerson({ id: 'spouse', gender: 'female' }),
+      makePerson({ id: 'dad' }),
+      makePerson({ id: 'mom', gender: 'female' }),
+      makePerson({ id: 'sibling' }),
+    ];
+    const r: Relationship[] = [
+      { type: 'partner', from: 'child', to: 'spouse', status: 'current' },
+      { type: 'parent', from: 'dad', to: 'child' },
+      { type: 'parent', from: 'mom', to: 'child' },
+      { type: 'parent', from: 'dad', to: 'sibling' },
+      { type: 'parent', from: 'mom', to: 'sibling' },
+      { type: 'partner', from: 'dad', to: 'mom', status: 'current' },
+    ];
+    const graph = buildFamilyGraph(p, r);
+    const { center, ancestorGroups } = buildGroupTree(graph, 'child');
+
+    expect(center.parents).toContain('child');
+    expect(center.parents).toContain('spouse');
+
+    // child's parent group should exist
+    const parentGroup = ancestorGroups.get('child');
+    expect(parentGroup).toBeDefined();
+    expect(parentGroup!.parents).toContain('dad');
+    expect(parentGroup!.parents).toContain('mom');
+
+    const types = parentGroup!.children.map(c => ({ id: c.personId, type: c.type }));
+    expect(types).toContainEqual({ id: 'child', type: 'backbone' });
+    expect(types).toContainEqual({ id: 'sibling', type: 'leaf' });
+  });
+
+  it('handles single parent subgroup (Birgitta case)', () => {
+    const p = [
+      makePerson({ id: 'center' }),
+      makePerson({ id: 'spouse', gender: 'female' }),
+      makePerson({ id: 'dad' }),
+      makePerson({ id: 'mom', gender: 'female' }),
+      makePerson({ id: 'aunt', gender: 'female' }),
+      makePerson({ id: 'cousin' }),
+    ];
+    const r: Relationship[] = [
+      { type: 'partner', from: 'center', to: 'spouse', status: 'current' },
+      { type: 'parent', from: 'dad', to: 'center' },
+      { type: 'parent', from: 'mom', to: 'center' },
+      { type: 'parent', from: 'dad', to: 'aunt' },
+      { type: 'parent', from: 'mom', to: 'aunt' },
+      { type: 'partner', from: 'dad', to: 'mom', status: 'current' },
+      { type: 'parent', from: 'aunt', to: 'cousin' },
+    ];
+    const graph = buildFamilyGraph(p, r);
+    const { ancestorGroups } = buildGroupTree(graph, 'center');
+
+    const parentGroup = ancestorGroups.get('center')!;
+    const auntChild = parentGroup.children.find(c => c.personId === 'aunt');
+    expect(auntChild?.type).toBe('subgroup');
+    if (auntChild?.type === 'subgroup') {
+      expect(auntChild.group.parents).toEqual(['aunt']);
+      expect(auntChild.group.children[0]).toEqual({ type: 'leaf', personId: 'cousin' });
+    }
+  });
+
+  it('builds multi-level ancestor chain', () => {
+    const p = [
+      makePerson({ id: 'child' }),
+      makePerson({ id: 'dad' }),
+      makePerson({ id: 'mom', gender: 'female' }),
+      makePerson({ id: 'grandpa' }),
+      makePerson({ id: 'grandma', gender: 'female' }),
+    ];
+    const r: Relationship[] = [
+      { type: 'parent', from: 'dad', to: 'child' },
+      { type: 'parent', from: 'mom', to: 'child' },
+      { type: 'partner', from: 'dad', to: 'mom', status: 'current' },
+      { type: 'parent', from: 'grandpa', to: 'dad' },
+      { type: 'parent', from: 'grandma', to: 'dad' },
+      { type: 'partner', from: 'grandpa', to: 'grandma', status: 'current' },
+    ];
+    const graph = buildFamilyGraph(p, r);
+    const { ancestorGroups } = buildGroupTree(graph, 'child');
+
+    // child -> dad+mom group
+    expect(ancestorGroups.has('child')).toBe(true);
+    // dad -> grandpa+grandma group
+    expect(ancestorGroups.has('dad')).toBe(true);
+    expect(ancestorGroups.get('dad')!.parents).toContain('grandpa');
+    expect(ancestorGroups.get('dad')!.parents).toContain('grandma');
   });
 });

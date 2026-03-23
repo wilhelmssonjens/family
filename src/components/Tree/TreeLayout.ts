@@ -1,6 +1,6 @@
 import { buildFamilyGraph, type FamilyGraph } from '../../utils/buildTree'
 import { CARD_WIDTH } from '../PersonCard/PersonCardMini'
-import type { Person, Relationship, LayoutNode, LayoutLink } from '../../types'
+import type { Person, Relationship, LayoutNode, LayoutLink, FamilyGroup, GroupChild } from '../../types'
 
 const GENERATION_GAP = 300
 const SIBLING_GAP = 250
@@ -488,5 +488,294 @@ function addLink(
   const from = nodes.get(fromId)
   if (from) {
     from.links.push({ targetId: toId, type })
+  }
+}
+
+// --- Group-based tree building ---
+
+export interface GroupTreeResult {
+  center: FamilyGroup
+  ancestorGroups: Map<string, FamilyGroup>
+}
+
+/**
+ * BFS from descendantId upward through parentIds.
+ * Returns true if personId is found as an ancestor of descendantId.
+ */
+export function isAncestorOf(
+  graph: FamilyGraph,
+  personId: string,
+  descendantId: string,
+): boolean {
+  const visited = new Set<string>()
+  const queue = [descendantId]
+  while (queue.length > 0) {
+    const current = queue.shift()!
+    if (visited.has(current)) continue
+    visited.add(current)
+    const node = graph.get(current)
+    if (!node) continue
+    for (const pid of node.parentIds) {
+      if (pid === personId) return true
+      queue.push(pid)
+    }
+  }
+  return false
+}
+
+/**
+ * Build a recursive FamilyGroup tree starting from the center couple,
+ * expanding UPWARD through ancestors.
+ *
+ * Returns the center group and a map from personId to their parent's FamilyGroup.
+ * ancestorGroups.get('jens') = the group where Jens's parents are the parents
+ * (i.e., Per+Laila group, with Jens as a backbone child).
+ */
+export function buildGroupTree(
+  graph: FamilyGraph,
+  centerId: string,
+): GroupTreeResult {
+  const ancestorGroups = new Map<string, FamilyGroup>()
+  const visited = new Set<string>()
+
+  const centerNode = graph.get(centerId)
+  if (!centerNode) {
+    return {
+      center: { parents: [centerId], children: [], width: 0, height: 0, x: 0, y: 0 },
+      ancestorGroups,
+    }
+  }
+
+  // Build center group: centerId + their partner
+  const partnerId = centerNode.partnerIds[0] ?? null
+  const centerParents = partnerId ? [centerId, partnerId] : [centerId]
+  centerParents.forEach(id => visited.add(id))
+
+  // Center group's children (the center couple's actual children)
+  const centerChildIds = collectChildIds(centerParents, graph)
+  const centerChildren: GroupChild[] = Array.from(centerChildIds)
+    .filter(id => !visited.has(id))
+    .map(id => {
+      visited.add(id)
+      return { type: 'leaf' as const, personId: id }
+    })
+
+  const centerGroup: FamilyGroup = {
+    parents: centerParents,
+    children: centerChildren,
+    width: 0,
+    height: 0,
+    x: 0,
+    y: 0,
+  }
+
+  // Build ancestor groups for each person in the center couple
+  const centerCoupleIds = new Set(centerParents)
+  for (const personId of centerParents) {
+    buildAncestorGroup(personId, centerId, centerCoupleIds, graph, visited, ancestorGroups)
+  }
+
+  return { center: centerGroup, ancestorGroups }
+}
+
+/**
+ * Collect all child IDs for a set of parents (union of all their childIds).
+ */
+function collectChildIds(parentIds: string[], graph: FamilyGraph): Set<string> {
+  const childIds = new Set<string>()
+  for (const pid of parentIds) {
+    const node = graph.get(pid)
+    if (node) {
+      for (const cid of node.childIds) {
+        childIds.add(cid)
+      }
+    }
+  }
+  return childIds
+}
+
+/**
+ * Recursively build ancestor groups for a person.
+ * Creates a FamilyGroup for the person's parents and stores it in ancestorGroups
+ * keyed by the person's ID.
+ */
+function buildAncestorGroup(
+  personId: string,
+  centerId: string,
+  centerCoupleIds: Set<string>,
+  graph: FamilyGraph,
+  visited: Set<string>,
+  ancestorGroups: Map<string, FamilyGroup>,
+): void {
+  const node = graph.get(personId)
+  if (!node) return
+
+  const parentIds = node.parentIds
+  if (parentIds.length === 0) return
+
+  // Build the parent couple: find all parents + their partners
+  const groupParents = new Set<string>()
+  for (const pid of parentIds) {
+    groupParents.add(pid)
+    // Include the partner of each parent if they exist
+    const parentNode = graph.get(pid)
+    if (parentNode) {
+      for (const partnerId of parentNode.partnerIds) {
+        // Only include partner if they are also a parent of one of the same children
+        // or if they are a partner of an already-included parent
+        if (!visited.has(partnerId)) {
+          groupParents.add(partnerId)
+        }
+      }
+    }
+  }
+
+  // Mark all group parents as visited
+  const groupParentIds = Array.from(groupParents)
+  groupParentIds.forEach(id => visited.add(id))
+
+  // Collect all children of this parent couple
+  const allChildIds = collectChildIds(groupParentIds, graph)
+
+  // Classify each child
+  const children: GroupChild[] = []
+  for (const childId of allChildIds) {
+    // Skip if this child is one of the group parents (shouldn't happen, but safety)
+    if (groupParents.has(childId)) continue
+
+    // A child is backbone if they are in the center couple or are an ancestor of centerId
+    const isBackboneChild =
+      centerCoupleIds.has(childId) || isAncestorOf(graph, childId, centerId)
+
+    if (isBackboneChild) {
+      // Backbone child: they connect this group toward center.
+      // Build their downstream group (where they are a parent).
+      const backboneGroup = buildBackboneChildGroup(childId, graph, visited)
+      children.push({ type: 'backbone', personId: childId, group: backboneGroup })
+      visited.add(childId)
+    } else {
+      // Check if child has their own children (subgroup) or is a leaf
+      const childNode = graph.get(childId)
+      const hasChildren = childNode ? childNode.childIds.length > 0 : false
+
+      if (hasChildren) {
+        // Subgroup: single parent (or with partner) who has children
+        visited.add(childId)
+        const subgroup = buildSubgroup(childId, graph, visited)
+        children.push({ type: 'subgroup', personId: childId, group: subgroup })
+      } else {
+        visited.add(childId)
+        children.push({ type: 'leaf', personId: childId })
+      }
+    }
+  }
+
+  const parentGroup: FamilyGroup = {
+    parents: groupParentIds,
+    children,
+    width: 0,
+    height: 0,
+    x: 0,
+    y: 0,
+  }
+
+  // Store: ancestorGroups.get(personId) = their parent's group
+  ancestorGroups.set(personId, parentGroup)
+
+  // Recurse: for each parent in the group, build their ancestor groups
+  for (const pid of groupParentIds) {
+    if (!ancestorGroups.has(pid)) {
+      buildAncestorGroup(pid, centerId, centerCoupleIds, graph, visited, ancestorGroups)
+    }
+  }
+}
+
+/**
+ * Build a placeholder FamilyGroup for a backbone child.
+ * This represents the group where the backbone person is a PARENT.
+ * The actual content is determined by what's already been built closer to center.
+ */
+function buildBackboneChildGroup(
+  personId: string,
+  graph: FamilyGraph,
+  visited: Set<string>,
+): FamilyGroup {
+  const node = graph.get(personId)
+  if (!node) {
+    return { parents: [personId], children: [], width: 0, height: 0, x: 0, y: 0 }
+  }
+
+  // The backbone person's group includes them and their partner
+  const groupParents = [personId]
+  for (const partnerId of node.partnerIds) {
+    if (!visited.has(partnerId)) {
+      groupParents.push(partnerId)
+    }
+  }
+
+  // Children of this backbone person (that aren't already visited)
+  const childIds = collectChildIds(groupParents, graph)
+  const children: GroupChild[] = Array.from(childIds)
+    .filter(id => !visited.has(id) && !groupParents.includes(id))
+    .map(id => {
+      visited.add(id)
+      return { type: 'leaf' as const, personId: id }
+    })
+
+  return {
+    parents: groupParents,
+    children,
+    width: 0,
+    height: 0,
+    x: 0,
+    y: 0,
+  }
+}
+
+/**
+ * Build a FamilyGroup for a subgroup child (someone with children but not backbone).
+ * E.g., Birgitta who has son Hampus but no partner and is not an ancestor of center.
+ */
+function buildSubgroup(
+  personId: string,
+  graph: FamilyGraph,
+  visited: Set<string>,
+): FamilyGroup {
+  const node = graph.get(personId)
+  if (!node) {
+    return { parents: [personId], children: [], width: 0, height: 0, x: 0, y: 0 }
+  }
+
+  // Include partner if they have one and aren't visited
+  const groupParents = [personId]
+  for (const partnerId of node.partnerIds) {
+    if (!visited.has(partnerId)) {
+      groupParents.push(partnerId)
+      visited.add(partnerId)
+    }
+  }
+
+  // Collect children
+  const childIds = collectChildIds(groupParents, graph)
+  const children: GroupChild[] = Array.from(childIds)
+    .filter(id => !visited.has(id) && !groupParents.includes(id))
+    .map(id => {
+      visited.add(id)
+      // Recursively check if this child is also a subgroup
+      const childNode = graph.get(id)
+      if (childNode && childNode.childIds.length > 0) {
+        const subgroup = buildSubgroup(id, graph, visited)
+        return { type: 'subgroup' as const, personId: id, group: subgroup }
+      }
+      return { type: 'leaf' as const, personId: id }
+    })
+
+  return {
+    parents: groupParents,
+    children,
+    width: 0,
+    height: 0,
+    x: 0,
+    y: 0,
   }
 }

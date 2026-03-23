@@ -139,5 +139,15 @@
     "type": "parent",
     "from": "tor-ahlbck",
     "to": "johan-ahlbck"
+  },
+  {
+    "type": "parent",
+    "from": "lennart",
+    "to": "arne-johansson"
+  },
+  {
+    "type": "parent",
+    "from": "greta",
+    "to": "arne-johansson"
   }
 ]

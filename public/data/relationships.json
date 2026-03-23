@@ -117,6 +117,11 @@
   },
   {
     "type": "parent",
+    "from": "tor-ahlbck",
+    "to": "erik-ahlbck"
+  },
+  {
+    "type": "parent",
     "from": "lena-ahlbck",
     "to": "erik-ahlbck"
   },

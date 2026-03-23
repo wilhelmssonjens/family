@@ -121,10 +121,19 @@ function expandAncestorsByGeneration(
       if (!childNode) continue
 
       // Place siblings of childId horizontally at same y, spreading in direction
-      const primaryParent = graph.get(parentIds[0])
-      const siblings = primaryParent
-        ? primaryParent.childIds.filter(id => id !== childId && !visited.has(id))
-        : []
+      // Check ALL parents for children (not just the first) to find half-siblings too
+      const siblingIds = new Set<string>()
+      for (const pid of parentIds) {
+        const parent = graph.get(pid)
+        if (parent) {
+          for (const cid of parent.childIds) {
+            if (cid !== childId && !visited.has(cid)) {
+              siblingIds.add(cid)
+            }
+          }
+        }
+      }
+      const siblings = Array.from(siblingIds)
 
       siblings.forEach((sibId, j) => {
         const sibX = childNode.x + (j + 1) * SIBLING_GAP * direction

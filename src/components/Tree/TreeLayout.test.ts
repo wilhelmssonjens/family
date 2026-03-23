@@ -147,6 +147,31 @@ describe('computeTreeLayout', () => {
     }
   });
 
+  it('discovers siblings from all parents, not just the first', () => {
+    // Sibling is only a child of parent-b (not parent-a) — must still appear
+    const p = [
+      makePerson({ id: 'jens', firstName: 'Jens' }),
+      makePerson({ id: 'klara', firstName: 'Klara', gender: 'female' }),
+      makePerson({ id: 'parent-a', firstName: 'ParentA' }),
+      makePerson({ id: 'parent-b', firstName: 'ParentB', gender: 'female' }),
+      makePerson({ id: 'half-sibling', firstName: 'HalfSibling' }),
+    ];
+    const r: Relationship[] = [
+      { type: 'partner', from: 'jens', to: 'klara', status: 'current' },
+      { type: 'parent', from: 'parent-a', to: 'klara' },
+      { type: 'parent', from: 'parent-b', to: 'klara' },
+      { type: 'partner', from: 'parent-a', to: 'parent-b', status: 'current' },
+      // Only parent-b is parent of half-sibling (not parent-a)
+      { type: 'parent', from: 'parent-b', to: 'half-sibling' },
+    ];
+    const layout = computeTreeLayout(p, r, 'jens');
+    const siblingNode = layout.find(n => n.personId === 'half-sibling');
+    const klaraNode = layout.find(n => n.personId === 'klara');
+    expect(siblingNode).toBeDefined();
+    expect(klaraNode).toBeDefined();
+    expect(siblingNode!.y).toBe(klaraNode!.y);
+  });
+
   it('creates parent-child links from both parents to all siblings', () => {
     const layout = computeTreeLayout(persons, relationships, 'jens');
     const fatherNode = layout.find(n => n.personId === 'jens-father')!;

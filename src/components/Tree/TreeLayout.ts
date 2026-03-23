@@ -3,494 +3,71 @@ import { CARD_WIDTH, CARD_HEIGHT } from '../PersonCard/PersonCardMini'
 import type { Person, Relationship, LayoutNode, LayoutLink, FamilyGroup, GroupChild, GroupFrame, BackboneLink, TreeLayoutResult } from '../../types'
 
 const GENERATION_GAP = 200
-const SIBLING_GAP = 250
 const PARTNER_GAP = 160
-const FAMILY_GROUP_GAP = 100
-const MAX_RESOLVE_ITERATIONS = 10
+const CARD_MARGIN = 20
 const CHILD_GAP = 40
 const GROUP_PADDING = 20
 const BACKBONE_GAP = 120
 
 /**
- * Vertical bottom-up tree layout with generation-based rows.
+ * Group-based tree layout.
  *
- * Y-axis = generations (negative y = older). Each generation gets a fixed y-row.
- * X-axis = siblings spread horizontally within a generation.
+ * 1. Build the family graph
+ * 2. Build the group tree (center group + ancestor groups)
+ * 3. Calculate group widths bottom-up
+ * 4. Place groups top-down, producing LayoutNodes, GroupFrames, and BackboneLinks
  *
- * Center couple at y=0. Ancestors go upward (negative y).
- * Jens ancestors spread left, Klara ancestors spread right.
- * Siblings are placed in a horizontal row at the same y-level.
+ * Returns a TreeLayoutResult (breaking change from the old LayoutNode[] return type).
  */
 export function computeTreeLayout(
   persons: Person[],
   relationships: Relationship[],
   centerId: string,
-): LayoutNode[] {
+): TreeLayoutResult {
   const graph = buildFamilyGraph(persons, relationships)
-  const nodes = new Map<string, LayoutNode>()
-  const visited = new Set<string>()
+  const { center, ancestorGroups } = buildGroupTree(graph, centerId)
 
-  const centerNode = graph.get(centerId)
-  if (!centerNode) return []
-
-  const centerPartnerId = centerNode.partnerIds[0]
-
-  // Place center couple
-  placeNode(centerId, -PARTNER_GAP / 2, 0, graph, nodes)
-  visited.add(centerId)
-
-  if (centerPartnerId) {
-    placeNode(centerPartnerId, PARTNER_GAP / 2, 0, graph, nodes)
-    visited.add(centerPartnerId)
-    addLink(nodes, centerId, centerPartnerId, 'partner')
+  calculateGroupWidths(center)
+  for (const group of ancestorGroups.values()) {
+    calculateGroupWidths(group)
   }
 
-  // Expand ancestors: left for centerId, right for partner
-  expandAncestorsByGeneration(centerId, -1, graph, nodes, visited)
-  if (centerPartnerId) {
-    expandAncestorsByGeneration(centerPartnerId, 1, graph, nodes, visited)
-  }
+  const result = placeGroups(center, ancestorGroups, graph)
 
-  // Place children of center couple below
-  const allChildIds = new Set<string>()
-  for (const id of [centerId, centerPartnerId].filter(Boolean) as string[]) {
-    const n = graph.get(id)
-    if (n) n.childIds.forEach(c => allChildIds.add(c))
-  }
-  const children = Array.from(allChildIds).filter(id => !visited.has(id))
-  children.forEach((childId, i) => {
-    const xOffset = (i - (children.length - 1) / 2) * SIBLING_GAP
-    placeNode(childId, xOffset, GENERATION_GAP, graph, nodes)
-    visited.add(childId)
-    addLink(nodes, centerId, childId, 'parent-child')
-  })
+  // Post-placement: resolve cross-group overlaps on each row
+  resolveRowOverlaps(result.nodes)
 
-  // Place unvisited partners next to their already-placed partner
-  placeUnvisitedPartners(graph, nodes, visited)
-
-  // Resolve any overlapping cards with parent re-centering
-  resolveOverlaps(nodes, graph, centerId)
-
-  return Array.from(nodes.values())
+  return result
 }
 
 /**
- * BFS expansion of ancestors, generation by generation.
- * Each generation gets a fixed y-row (negative = older).
- * Siblings spread horizontally in the direction of their family side.
+ * Simple row-based overlap resolution.
+ * Groups nodes by y, sorts by x within each row, and shifts
+ * rightward any nodes that are too close to their left neighbor.
  */
-function expandAncestorsByGeneration(
-  startPersonId: string,
-  direction: number,
-  graph: FamilyGraph,
-  nodes: Map<string, LayoutNode>,
-  visited: Set<string>,
-) {
-  let currentGenPersons = [startPersonId]
-  let generation = 1
-
-  while (currentGenPersons.length > 0) {
-    const genY = -generation * GENERATION_GAP
-
-    const couples: { parentIds: string[]; childId: string }[] = []
-
-    for (const personId of currentGenPersons) {
-      const node = graph.get(personId)
-      if (!node) continue
-
-      const parentIds = node.parentIds.filter(id => !visited.has(id))
-      if (parentIds.length === 0) continue
-
-      couples.push({ parentIds, childId: personId })
-    }
-
-    if (couples.length === 0) break
-
-    const nextGenPersons: string[] = []
-
-    for (const { parentIds, childId } of couples) {
-      const childNode = nodes.get(childId)
-      if (!childNode) continue
-
-      // Place siblings of childId horizontally at same y, spreading in direction
-      // Check ALL parents for children (not just the first) to find half-siblings too
-      const siblingIds = new Set<string>()
-      for (const pid of parentIds) {
-        const parent = graph.get(pid)
-        if (parent) {
-          for (const cid of parent.childIds) {
-            if (cid !== childId && !visited.has(cid)) {
-              siblingIds.add(cid)
-            }
-          }
-        }
-      }
-      const siblings = Array.from(siblingIds)
-
-      siblings.forEach((sibId, j) => {
-        const sibX = childNode.x + (j + 1) * SIBLING_GAP * direction
-        placeNode(sibId, sibX, childNode.y, graph, nodes)
-        visited.add(sibId)
-      })
-
-      // Center parent couple above the entire children row
-      const allChildrenX = [childNode.x, ...siblings.map(sibId => nodes.get(sibId)!.x)]
-      const minX = Math.min(...allChildrenX)
-      const maxX = Math.max(...allChildrenX)
-      const centerX = (minX + maxX) / 2
-
-      // Place parents (must happen before adding links to siblings)
-      const placedParentIds: string[] = []
-      if (parentIds.length >= 2) {
-        placeNode(parentIds[0], centerX - PARTNER_GAP / 2, genY, graph, nodes)
-        placeNode(parentIds[1], centerX + PARTNER_GAP / 2, genY, graph, nodes)
-        visited.add(parentIds[0])
-        visited.add(parentIds[1])
-        placedParentIds.push(parentIds[0], parentIds[1])
-
-        addLink(nodes, parentIds[0], parentIds[1], 'partner')
-        addLink(nodes, parentIds[0], childId, 'parent-child')
-        addLink(nodes, parentIds[1], childId, 'parent-child')
-
-        nextGenPersons.push(parentIds[0], parentIds[1])
-      } else {
-        // Single parent found — check if they have an unvisited partner
-        const singleParent = graph.get(parentIds[0])
-        const unvisitedPartner = singleParent?.partnerIds.find(id => !visited.has(id))
-
-        if (unvisitedPartner) {
-          placeNode(parentIds[0], centerX - PARTNER_GAP / 2, genY, graph, nodes)
-          placeNode(unvisitedPartner, centerX + PARTNER_GAP / 2, genY, graph, nodes)
-          visited.add(parentIds[0])
-          visited.add(unvisitedPartner)
-          placedParentIds.push(parentIds[0], unvisitedPartner)
-
-          addLink(nodes, parentIds[0], unvisitedPartner, 'partner')
-          addLink(nodes, parentIds[0], childId, 'parent-child')
-
-          // Add parent-child link from partner if they are also a parent
-          const partnerNode = graph.get(unvisitedPartner)
-          if (partnerNode?.childIds.includes(childId)) {
-            addLink(nodes, unvisitedPartner, childId, 'parent-child')
-          }
-
-          nextGenPersons.push(parentIds[0], unvisitedPartner)
-        } else {
-          placeNode(parentIds[0], centerX, genY, graph, nodes)
-          visited.add(parentIds[0])
-          placedParentIds.push(parentIds[0])
-          addLink(nodes, parentIds[0], childId, 'parent-child')
-          nextGenPersons.push(parentIds[0])
-        }
-      }
-
-      // Now add parent-child links from parents to siblings (parents are placed now)
-      for (const sibId of siblings) {
-        for (const pid of placedParentIds) {
-          const parentGraphNode = graph.get(pid)
-          if (parentGraphNode?.childIds.includes(sibId)) {
-            addLink(nodes, pid, sibId, 'parent-child')
-          }
-        }
-      }
-    }
-
-    currentGenPersons = nextGenPersons
-    generation++
-  }
-}
-
-/**
- * Find all placed nodes whose partners are not yet placed,
- * and place those partners beside them.
- */
-function placeUnvisitedPartners(
-  graph: FamilyGraph,
-  nodes: Map<string, LayoutNode>,
-  visited: Set<string>,
-) {
-  for (const [personId, layoutNode] of nodes) {
-    const familyNode = graph.get(personId)
-    if (!familyNode) continue
-
-    for (const partnerId of familyNode.partnerIds) {
-      if (visited.has(partnerId)) continue
-
-      const partnerX = layoutNode.x + PARTNER_GAP
-      placeNode(partnerId, partnerX, layoutNode.y, graph, nodes)
-      visited.add(partnerId)
-      addLink(nodes, personId, partnerId, 'partner')
-
-      // Also add parent-child links from the partner to children already placed
-      const partnerFamilyNode = graph.get(partnerId)
-      if (partnerFamilyNode) {
-        for (const childId of partnerFamilyNode.childIds) {
-          if (nodes.has(childId)) {
-            addLink(nodes, partnerId, childId, 'parent-child')
-          }
-        }
-      }
-    }
-  }
-}
-
-const CARD_MARGIN = 20
-
-/**
- * Iterative overlap resolution with family group spacing and parent re-centering.
- *
- * 1. Process rows bottom-to-top (children before parents)
- * 2. Group nodes on each row by family (shared parents / partners)
- * 3. Resolve overlaps within groups, add extra gap between groups
- * 4. Re-center parent couples above their children
- * 5. Repeat until stable (max MAX_RESOLVE_ITERATIONS)
- */
-function resolveOverlaps(
-  nodes: Map<string, LayoutNode>,
-  graph: FamilyGraph,
-  centerId: string,
-) {
+function resolveRowOverlaps(nodes: LayoutNode[]): void {
   const minSpacing = CARD_WIDTH + CARD_MARGIN
 
-  for (let iteration = 0; iteration < MAX_RESOLVE_ITERATIONS; iteration++) {
-    let anyMoved = false
-
-    // Group nodes by y-row
-    const rows = new Map<number, LayoutNode[]>()
-    for (const node of nodes.values()) {
-      const row = rows.get(node.y) ?? []
-      row.push(node)
-      rows.set(node.y, row)
-    }
-
-    // Process bottom-to-top (highest y first = children before parents)
-    const sortedYs = Array.from(rows.keys()).sort((a, b) => b - a)
-
-    for (const y of sortedYs) {
-      const row = rows.get(y)!
-
-      if (row.length >= 2) {
-        // Identify family groups via union-find
-        const groups = groupByFamily(row, graph)
-
-        // Sort each group internally by x
-        for (const group of groups) {
-          group.sort((a, b) => a.x - b.x)
-        }
-        // Sort groups by leftmost node x
-        groups.sort((a, b) => a[0].x - b[0].x)
-
-        // Resolve within-group overlaps
-        for (const group of groups) {
-          if (group.length < 2) continue
-          for (let i = 1; i < group.length; i++) {
-            const gap = group[i].x - group[i - 1].x
-            if (gap < minSpacing) {
-              const shift = minSpacing - gap
-              for (let j = i; j < group.length; j++) {
-                group[j].x += shift
-              }
-              anyMoved = true
-            }
-          }
-        }
-
-        // Resolve between-group overlaps (with extra FAMILY_GROUP_GAP)
-        for (let g = 1; g < groups.length; g++) {
-          const prevRightmost = groups[g - 1][groups[g - 1].length - 1]
-          const currLeftmost = groups[g][0]
-          const requiredGap = minSpacing + FAMILY_GROUP_GAP
-          const actualGap = currLeftmost.x - prevRightmost.x
-          if (actualGap < requiredGap) {
-            const shift = requiredGap - actualGap
-            // Shift current and all subsequent groups
-            for (let h = g; h < groups.length; h++) {
-              for (const node of groups[h]) {
-                node.x += shift
-              }
-            }
-            anyMoved = true
-          }
-        }
-      }
-
-      // Re-center parent couples above this row's nodes
-      if (recenterParentsOfRow(row, graph, nodes, centerId)) {
-        anyMoved = true
-      }
-    }
-
-    if (!anyMoved) break
-  }
-}
-
-/**
- * Group nodes on the same row by family using union-find.
- * Nodes that share at least one parent, or are partners, form one group.
- */
-function groupByFamily(row: LayoutNode[], graph: FamilyGraph): LayoutNode[][] {
-  if (row.length === 0) return []
-
-  // Union-find with path compression
-  const uf = new Map<string, string>()
-
-  function find(x: string): string {
-    while (uf.get(x) !== x) {
-      uf.set(x, uf.get(uf.get(x)!)!)
-      x = uf.get(x)!
-    }
-    return x
+  const rows = new Map<number, LayoutNode[]>()
+  for (const node of nodes) {
+    const row = rows.get(node.y) ?? []
+    row.push(node)
+    rows.set(node.y, row)
   }
 
-  function union(a: string, b: string) {
-    const ra = find(a), rb = find(b)
-    if (ra !== rb) uf.set(ra, rb)
-  }
-
-  for (const node of row) {
-    uf.set(node.personId, node.personId)
-  }
-
-  // Union children of the same parent
-  const parentToRowChildren = new Map<string, string[]>()
-  for (const node of row) {
-    const familyNode = graph.get(node.personId)
-    if (!familyNode) continue
-    for (const pid of familyNode.parentIds) {
-      const list = parentToRowChildren.get(pid) ?? []
-      list.push(node.personId)
-      parentToRowChildren.set(pid, list)
-    }
-  }
-  for (const children of parentToRowChildren.values()) {
-    for (let i = 1; i < children.length; i++) {
-      union(children[0], children[i])
-    }
-  }
-
-  // Union partners on the same row
-  const rowIds = new Set(row.map(n => n.personId))
-  for (const node of row) {
-    const familyNode = graph.get(node.personId)
-    if (!familyNode) continue
-    for (const partnerId of familyNode.partnerIds) {
-      if (rowIds.has(partnerId)) {
-        union(node.personId, partnerId)
-      }
-    }
-  }
-
-  // Collect groups
-  const groupMap = new Map<string, LayoutNode[]>()
-  for (const node of row) {
-    const root = find(node.personId)
-    const group = groupMap.get(root) ?? []
-    group.push(node)
-    groupMap.set(root, group)
-  }
-
-  return Array.from(groupMap.values())
-}
-
-/**
- * Re-center parent couples above their children on the given row.
- * Skips the center couple (they are the layout anchor).
- */
-function recenterParentsOfRow(
-  row: LayoutNode[],
-  graph: FamilyGraph,
-  nodes: Map<string, LayoutNode>,
-  centerId: string,
-): boolean {
-  let moved = false
-  const processedCouples = new Set<string>()
-
-  // Determine the center couple IDs to skip
-  const centerFamilyNode = graph.get(centerId)
-  const centerCoupleIds = new Set<string>([centerId])
-  if (centerFamilyNode) {
-    for (const pid of centerFamilyNode.partnerIds) {
-      centerCoupleIds.add(pid)
-    }
-  }
-
-  for (const childNode of row) {
-    const familyNode = graph.get(childNode.personId)
-    if (!familyNode) continue
-
-    const placedParentIds = familyNode.parentIds.filter(id => nodes.has(id))
-    if (placedParentIds.length === 0) continue
-
-    // Expand to include partner (the couple)
-    const coupleIds = new Set(placedParentIds)
-    for (const pid of placedParentIds) {
-      const parentFamilyNode = graph.get(pid)
-      if (parentFamilyNode) {
-        for (const partnerId of parentFamilyNode.partnerIds) {
-          if (nodes.has(partnerId)) coupleIds.add(partnerId)
+  for (const row of rows.values()) {
+    if (row.length < 2) continue
+    row.sort((a, b) => a.x - b.x)
+    for (let i = 1; i < row.length; i++) {
+      const gap = row[i].x - row[i - 1].x
+      if (gap < minSpacing) {
+        const shift = minSpacing - gap
+        // Shift this node and all subsequent nodes on the row
+        for (let j = i; j < row.length; j++) {
+          row[j].x += shift
         }
       }
     }
-
-    const coupleKey = Array.from(coupleIds).sort().join('|')
-    if (processedCouples.has(coupleKey)) continue
-    processedCouples.add(coupleKey)
-
-    // Skip the center couple — they are the anchor point
-    if (Array.from(coupleIds).every(id => centerCoupleIds.has(id))) continue
-
-    // Collect all placed children of this couple
-    const allChildIds = new Set<string>()
-    for (const pid of coupleIds) {
-      const pFamilyNode = graph.get(pid)
-      if (pFamilyNode) {
-        for (const cid of pFamilyNode.childIds) {
-          if (nodes.has(cid)) allChildIds.add(cid)
-        }
-      }
-    }
-
-    const childXs = Array.from(allChildIds).map(id => nodes.get(id)!.x)
-    if (childXs.length === 0) continue
-
-    const childCenterX = (Math.min(...childXs) + Math.max(...childXs)) / 2
-
-    const parentNodes = Array.from(coupleIds).map(id => nodes.get(id)!).filter(Boolean)
-    const parentCenterX = parentNodes.reduce((sum, p) => sum + p.x, 0) / parentNodes.length
-    const delta = childCenterX - parentCenterX
-
-    if (Math.abs(delta) > 0.5) {
-      for (const p of parentNodes) {
-        p.x += delta
-      }
-      moved = true
-    }
-  }
-
-  return moved
-}
-
-function placeNode(
-  personId: string,
-  x: number,
-  y: number,
-  graph: FamilyGraph,
-  nodes: Map<string, LayoutNode>,
-) {
-  const familyNode = graph.get(personId)
-  if (!familyNode) return
-  nodes.set(personId, { personId, person: familyNode.person, x, y, links: [] })
-}
-
-function addLink(
-  nodes: Map<string, LayoutNode>,
-  fromId: string,
-  toId: string,
-  type: LayoutLink['type'],
-) {
-  const from = nodes.get(fromId)
-  if (from) {
-    from.links.push({ targetId: toId, type })
   }
 }
 

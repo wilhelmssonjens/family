@@ -76,7 +76,6 @@ describe('TreeView', () => {
         relationships={mockRelationships}
         centerId="p1"
         onPersonClick={() => {}}
-        expandedPersonId={null}
       />,
     );
 

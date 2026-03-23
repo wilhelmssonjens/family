@@ -20,7 +20,7 @@ export function TreeView({ persons, relationships, centerId, highlightPersonId, 
   const [transform, setTransform] = useState({ x: 0, y: 0, k: 1 })
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 })
 
-  const nodes = computeTreeLayout(persons, relationships, centerId)
+  const { nodes, groupFrames, backboneLinks } = computeTreeLayout(persons, relationships, centerId)
 
   useEffect(() => {
     if (!svgRef.current) return
@@ -150,6 +150,36 @@ export function TreeView({ persons, relationships, centerId, highlightPersonId, 
               </g>
             )
           })}
+
+          {/* Group frames (dashed rectangles around family groups) */}
+          {groupFrames.map((frame, i) => (
+            <rect
+              key={`group-${i}`}
+              x={frame.x}
+              y={frame.y}
+              width={frame.width}
+              height={frame.height}
+              rx={10}
+              fill="none"
+              stroke="var(--color-card-border)"
+              strokeWidth={1}
+              strokeDasharray="6"
+              opacity={0.3}
+            />
+          ))}
+
+          {/* Backbone links (dashed lines connecting groups) */}
+          {backboneLinks.map((link, i) => (
+            <path
+              key={`backbone-${i}`}
+              d={link.points.map((p, j) => `${j === 0 ? 'M' : 'L'}${p[0]},${p[1]}`).join(' ')}
+              fill="none"
+              stroke="var(--color-accent)"
+              strokeWidth={1.5}
+              strokeDasharray="6"
+              opacity={0.4}
+            />
+          ))}
 
           {nodes.map((node) => (
             <PersonCardMini

@@ -19,6 +19,11 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.85); }
+  to { opacity: 1; transform: scale(1); }
+}
+
 .animate-in {
   animation: animate-in 0.2s ease-out;
 }

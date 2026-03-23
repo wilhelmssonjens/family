@@ -5,13 +5,14 @@ interface Props {
   person: Person
   x: number
   y: number
+  highlight?: boolean
   onClick: () => void
 }
 
 const CARD_WIDTH = 140
 const CARD_HEIGHT = 90
 
-export function PersonCardMini({ person, x, y, onClick }: Props) {
+export function PersonCardMini({ person, x, y, highlight, onClick }: Props) {
   const initials = getInitials(person.firstName, person.lastName)
   const birthYear = person.birthDate?.slice(0, 4)
   const deathYear = person.deathDate?.slice(0, 4)
@@ -19,7 +20,11 @@ export function PersonCardMini({ person, x, y, onClick }: Props) {
   const hasPhoto = !!photoUrl
 
   return (
-    <g transform={`translate(${x - CARD_WIDTH / 2}, ${y - CARD_HEIGHT / 2})`}>
+    <g
+      transform={`translate(${x - CARD_WIDTH / 2}, ${y - CARD_HEIGHT / 2})`}
+      opacity={highlight ? 0 : 1}
+      style={highlight ? { animation: 'fadeIn 0.5s ease-out forwards' } : undefined}
+    >
       {/* Clip path for circular photo */}
       <defs>
         <clipPath id={`photo-clip-${person.id}`}>

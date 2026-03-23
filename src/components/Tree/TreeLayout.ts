@@ -1,4 +1,5 @@
 import { buildFamilyGraph, type FamilyGraph } from '../../utils/buildTree'
+import { CARD_WIDTH, CARD_HEIGHT } from '../PersonCard/PersonCardMini'
 import type { Person, Relationship } from '../../types'
 
 export interface LayoutLink {
@@ -74,6 +75,9 @@ export function computeTreeLayout(
 
   // Place unvisited partners next to their already-placed partner
   placeUnvisitedPartners(graph, nodes, visited)
+
+  // Resolve any overlapping cards
+  resolveOverlaps(nodes)
 
   return Array.from(nodes.values())
 }
@@ -223,6 +227,39 @@ function placeUnvisitedPartners(
           if (nodes.has(childId)) {
             addLink(nodes, partnerId, childId, 'parent-child')
           }
+        }
+      }
+    }
+  }
+}
+
+const CARD_MARGIN = 20
+
+/**
+ * Resolve overlapping cards by pushing apart nodes on the same y-row.
+ */
+function resolveOverlaps(nodes: Map<string, LayoutNode>) {
+  // Group nodes by y-row
+  const rows = new Map<number, LayoutNode[]>()
+  for (const node of nodes.values()) {
+    const row = rows.get(node.y) ?? []
+    row.push(node)
+    rows.set(node.y, row)
+  }
+
+  for (const row of rows.values()) {
+    if (row.length < 2) continue
+    row.sort((a, b) => a.x - b.x)
+
+    const minSpacing = CARD_WIDTH + CARD_MARGIN
+
+    for (let i = 1; i < row.length; i++) {
+      const gap = row[i].x - row[i - 1].x
+      if (gap < minSpacing) {
+        const shift = minSpacing - gap
+        // Push this node and all subsequent nodes to the right
+        for (let j = i; j < row.length; j++) {
+          row[j].x += shift
         }
       }
     }

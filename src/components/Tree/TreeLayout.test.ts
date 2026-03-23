@@ -128,6 +128,25 @@ describe('computeTreeLayout', () => {
     expect(lenaNode!.y).toBe(torNode!.y);
   });
 
+  it('no cards overlap on the same row', () => {
+    const layout = computeTreeLayout(persons, relationships, 'jens');
+    // Group by y
+    const rows = new Map<number, typeof layout>();
+    for (const node of layout) {
+      const row = rows.get(node.y) ?? [];
+      row.push(node);
+      rows.set(node.y, row);
+    }
+    for (const row of rows.values()) {
+      if (row.length < 2) continue;
+      row.sort((a, b) => a.x - b.x);
+      for (let i = 1; i < row.length; i++) {
+        const gap = row[i].x - row[i - 1].x;
+        expect(gap).toBeGreaterThanOrEqual(140); // CARD_WIDTH
+      }
+    }
+  });
+
   it('creates parent-child links from both parents to all siblings', () => {
     const layout = computeTreeLayout(persons, relationships, 'jens');
     const fatherNode = layout.find(n => n.personId === 'jens-father')!;

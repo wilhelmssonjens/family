@@ -10,10 +10,11 @@ interface Props {
   persons: Person[]
   relationships: Relationship[]
   centerId: string
+  highlightPersonId?: string | null
   onPersonClick: (personId: string) => void
 }
 
-export function TreeView({ persons, relationships, centerId, onPersonClick }: Props) {
+export function TreeView({ persons, relationships, centerId, highlightPersonId, onPersonClick }: Props) {
   const svgRef = useRef<SVGSVGElement>(null)
   const gRef = useRef<SVGGElement>(null)
   const [transform, setTransform] = useState({ x: 0, y: 0, k: 1 })
@@ -156,6 +157,7 @@ export function TreeView({ persons, relationships, centerId, onPersonClick }: Pr
               person={node.person}
               x={node.x}
               y={node.y}
+              highlight={node.personId === highlightPersonId}
               onClick={() => onPersonClick(node.personId)}
             />
           ))}

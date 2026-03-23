@@ -61,7 +61,16 @@ Klick på ett PersonCardMini-kort i trädet öppnar en centrerad modal (PersonMo
 
 Modaler renderas som DOM-element ovanpå SVG-trädet (inte via foreignObject), vilket ger konsekvent beteende på desktop och mobil.
 
+## Kollisionsdetektering
+
+`resolveOverlaps()` körs som sista steg i `computeTreeLayout`. Den grupperar noder per y-rad, sorterar per x, och skjuter isär kort som överlappar (baserat på `CARD_WIDTH + 20px` marginal). Garanterar att inga kort överlappar oavsett data.
+
+## Fade-in-animation
+
+Nyligen tillagda personer animeras in med en 0.5s `fadeIn`-animation (scale 0.85→1 + opacity 0→1). `highlightPersonId` skickas från App→TreeView→PersonCardMini. Animationen varar 1.5s totalt innan highlight-state rensas.
+
 ## Hur man ändrar layouten
 1. Justera konstanter i `TreeLayout.ts` (gap-värden)
 2. Ändra `expandAncestors()` för ny placeringsstrategi
-3. Tester i `TreeLayout.test.ts` verifierar att center, parents, siblings placeras korrekt
+3. `resolveOverlaps()` säkerställer att inga kort krockar
+4. Tester i `TreeLayout.test.ts` verifierar att center, parents, siblings placeras korrekt och att inga kort överlappar

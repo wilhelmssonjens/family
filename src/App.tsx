@@ -20,6 +20,7 @@ function TreePage() {
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null)
   const [showAddRelative, setShowAddRelative] = useState(false)
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle')
+  const [newlyAddedId, setNewlyAddedId] = useState<string | null>(null)
 
   const graph = useMemo(() => buildFamilyGraph(persons, relationships), [persons, relationships])
 
@@ -123,6 +124,8 @@ function TreePage() {
           }
         }
         addRelationships(newRels)
+        setNewlyAddedId(data.existingPersonId)
+        setTimeout(() => setNewlyAddedId(null), 1500)
       } else {
         // Create new person + relationship
         const res = await fetch(endpoint, {
@@ -163,11 +166,14 @@ function TreePage() {
             }
           }
           addPerson(newPerson, newRels)
+          setNewlyAddedId(result.personId)
+          setTimeout(() => setNewlyAddedId(null), 1500)
         }
       }
 
       setSubmitStatus('success')
       setShowAddRelative(false)
+      setSelectedPersonId(null)
       setTimeout(() => setSubmitStatus('idle'), 3000)
     } catch {
       setSubmitStatus('error')
@@ -181,6 +187,7 @@ function TreePage() {
         persons={persons}
         relationships={relationships}
         centerId={centerId}
+        highlightPersonId={newlyAddedId}
         onPersonClick={(pid) => setSelectedPersonId(pid)}
       />
 

@@ -172,6 +172,114 @@ describe('computeTreeLayout', () => {
     expect(siblingNode!.y).toBe(klaraNode!.y);
   });
 
+  it('parents stay centered above children after overlap resolution', () => {
+    // 4 siblings force overlap resolution — parents must re-center
+    const p = [
+      makePerson({ id: 'jens', firstName: 'Jens' }),
+      makePerson({ id: 'klara', firstName: 'Klara', gender: 'female' }),
+      makePerson({ id: 'dad', firstName: 'Dad' }),
+      makePerson({ id: 'mom', firstName: 'Mom', gender: 'female' }),
+      makePerson({ id: 'sib1', firstName: 'Sib1' }),
+      makePerson({ id: 'sib2', firstName: 'Sib2' }),
+      makePerson({ id: 'sib3', firstName: 'Sib3' }),
+    ];
+    const r: Relationship[] = [
+      { type: 'partner', from: 'jens', to: 'klara', status: 'current' },
+      { type: 'parent', from: 'dad', to: 'jens' },
+      { type: 'parent', from: 'mom', to: 'jens' },
+      { type: 'partner', from: 'dad', to: 'mom', status: 'current' },
+      { type: 'parent', from: 'dad', to: 'sib1' },
+      { type: 'parent', from: 'mom', to: 'sib1' },
+      { type: 'parent', from: 'dad', to: 'sib2' },
+      { type: 'parent', from: 'mom', to: 'sib2' },
+      { type: 'parent', from: 'dad', to: 'sib3' },
+      { type: 'parent', from: 'mom', to: 'sib3' },
+    ];
+    const layout = computeTreeLayout(p, r, 'jens');
+    const dadNode = layout.find(n => n.personId === 'dad')!;
+    const momNode = layout.find(n => n.personId === 'mom')!;
+    const childNodes = ['jens', 'sib1', 'sib2', 'sib3']
+      .map(id => layout.find(n => n.personId === id)!)
+      .filter(Boolean);
+
+    const parentCenter = (dadNode.x + momNode.x) / 2;
+    const childXs = childNodes.map(n => n.x);
+    const childCenter = (Math.min(...childXs) + Math.max(...childXs)) / 2;
+    expect(parentCenter).toBeCloseTo(childCenter, 0);
+  });
+
+  it('adds extra spacing between different family groups on same row', () => {
+    // Jens's parents (jens-father, jens-mother) and Klara's parents (klara-father, klara-mother)
+    // are on the same y-row but are separate family groups
+    const layout = computeTreeLayout(persons, relationships, 'jens');
+    const jfNode = layout.find(n => n.personId === 'jens-father')!;
+    const jmNode = layout.find(n => n.personId === 'jens-mother')!;
+    const kfNode = layout.find(n => n.personId === 'klara-father')!;
+    const kmNode = layout.find(n => n.personId === 'klara-mother')!;
+
+    // Both couples are on the same y-level
+    expect(jfNode.y).toBe(kfNode.y);
+
+    // Find gap between rightmost of Jens-parents group and leftmost of Klara-parents group
+    const jensGroupRight = Math.max(jfNode.x, jmNode.x);
+    const klaraGroupLeft = Math.min(kfNode.x, kmNode.x);
+    const interGroupGap = klaraGroupLeft - jensGroupRight;
+    // Inter-group gap should be larger than minimum card spacing (160) due to FAMILY_GROUP_GAP
+    expect(interGroupGap).toBeGreaterThan(160);
+  });
+
+  it('no overlaps in a large tree with many siblings', () => {
+    // Both sides have 3 siblings each — stress test
+    const p = [
+      makePerson({ id: 'jens', firstName: 'Jens' }),
+      makePerson({ id: 'klara', firstName: 'Klara', gender: 'female' }),
+      makePerson({ id: 'jf', firstName: 'JF' }),
+      makePerson({ id: 'jm', firstName: 'JM', gender: 'female' }),
+      makePerson({ id: 'kf', firstName: 'KF' }),
+      makePerson({ id: 'km', firstName: 'KM', gender: 'female' }),
+      makePerson({ id: 'js1', firstName: 'JS1' }),
+      makePerson({ id: 'js2', firstName: 'JS2' }),
+      makePerson({ id: 'ks1', firstName: 'KS1' }),
+      makePerson({ id: 'ks2', firstName: 'KS2' }),
+    ];
+    const r: Relationship[] = [
+      { type: 'partner', from: 'jens', to: 'klara', status: 'current' },
+      { type: 'parent', from: 'jf', to: 'jens' },
+      { type: 'parent', from: 'jm', to: 'jens' },
+      { type: 'partner', from: 'jf', to: 'jm', status: 'current' },
+      { type: 'parent', from: 'jf', to: 'js1' },
+      { type: 'parent', from: 'jm', to: 'js1' },
+      { type: 'parent', from: 'jf', to: 'js2' },
+      { type: 'parent', from: 'jm', to: 'js2' },
+      { type: 'parent', from: 'kf', to: 'klara' },
+      { type: 'parent', from: 'km', to: 'klara' },
+      { type: 'partner', from: 'kf', to: 'km', status: 'current' },
+      { type: 'parent', from: 'kf', to: 'ks1' },
+      { type: 'parent', from: 'km', to: 'ks1' },
+      { type: 'parent', from: 'kf', to: 'ks2' },
+      { type: 'parent', from: 'km', to: 'ks2' },
+    ];
+    const layout = computeTreeLayout(p, r, 'jens');
+
+    // Verify all placed
+    expect(layout.length).toBe(p.length);
+
+    // Verify no overlaps on any row
+    const rows = new Map<number, typeof layout>();
+    for (const node of layout) {
+      const row = rows.get(node.y) ?? [];
+      row.push(node);
+      rows.set(node.y, row);
+    }
+    for (const row of rows.values()) {
+      if (row.length < 2) continue;
+      row.sort((a, b) => a.x - b.x);
+      for (let i = 1; i < row.length; i++) {
+        expect(row[i].x - row[i - 1].x).toBeGreaterThanOrEqual(140);
+      }
+    }
+  });
+
   it('creates parent-child links from both parents to all siblings', () => {
     const layout = computeTreeLayout(persons, relationships, 'jens');
     const fatherNode = layout.find(n => n.personId === 'jens-father')!;

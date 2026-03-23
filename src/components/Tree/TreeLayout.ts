@@ -18,6 +18,8 @@ export interface LayoutNode {
 const GENERATION_GAP = 300
 const SIBLING_GAP = 250
 const PARTNER_GAP = 160
+const FAMILY_GROUP_GAP = 100
+const MAX_RESOLVE_ITERATIONS = 10
 
 /**
  * Vertical bottom-up tree layout with generation-based rows.
@@ -76,8 +78,8 @@ export function computeTreeLayout(
   // Place unvisited partners next to their already-placed partner
   placeUnvisitedPartners(graph, nodes, visited)
 
-  // Resolve any overlapping cards
-  resolveOverlaps(nodes)
+  // Resolve any overlapping cards with parent re-centering
+  resolveOverlaps(nodes, graph, centerId)
 
   return Array.from(nodes.values())
 }
@@ -245,34 +247,237 @@ function placeUnvisitedPartners(
 const CARD_MARGIN = 20
 
 /**
- * Resolve overlapping cards by pushing apart nodes on the same y-row.
+ * Iterative overlap resolution with family group spacing and parent re-centering.
+ *
+ * 1. Process rows bottom-to-top (children before parents)
+ * 2. Group nodes on each row by family (shared parents / partners)
+ * 3. Resolve overlaps within groups, add extra gap between groups
+ * 4. Re-center parent couples above their children
+ * 5. Repeat until stable (max MAX_RESOLVE_ITERATIONS)
  */
-function resolveOverlaps(nodes: Map<string, LayoutNode>) {
-  // Group nodes by y-row
-  const rows = new Map<number, LayoutNode[]>()
-  for (const node of nodes.values()) {
-    const row = rows.get(node.y) ?? []
-    row.push(node)
-    rows.set(node.y, row)
+function resolveOverlaps(
+  nodes: Map<string, LayoutNode>,
+  graph: FamilyGraph,
+  centerId: string,
+) {
+  const minSpacing = CARD_WIDTH + CARD_MARGIN
+
+  for (let iteration = 0; iteration < MAX_RESOLVE_ITERATIONS; iteration++) {
+    let anyMoved = false
+
+    // Group nodes by y-row
+    const rows = new Map<number, LayoutNode[]>()
+    for (const node of nodes.values()) {
+      const row = rows.get(node.y) ?? []
+      row.push(node)
+      rows.set(node.y, row)
+    }
+
+    // Process bottom-to-top (highest y first = children before parents)
+    const sortedYs = Array.from(rows.keys()).sort((a, b) => b - a)
+
+    for (const y of sortedYs) {
+      const row = rows.get(y)!
+
+      if (row.length >= 2) {
+        // Identify family groups via union-find
+        const groups = groupByFamily(row, graph)
+
+        // Sort each group internally by x
+        for (const group of groups) {
+          group.sort((a, b) => a.x - b.x)
+        }
+        // Sort groups by leftmost node x
+        groups.sort((a, b) => a[0].x - b[0].x)
+
+        // Resolve within-group overlaps
+        for (const group of groups) {
+          if (group.length < 2) continue
+          for (let i = 1; i < group.length; i++) {
+            const gap = group[i].x - group[i - 1].x
+            if (gap < minSpacing) {
+              const shift = minSpacing - gap
+              for (let j = i; j < group.length; j++) {
+                group[j].x += shift
+              }
+              anyMoved = true
+            }
+          }
+        }
+
+        // Resolve between-group overlaps (with extra FAMILY_GROUP_GAP)
+        for (let g = 1; g < groups.length; g++) {
+          const prevRightmost = groups[g - 1][groups[g - 1].length - 1]
+          const currLeftmost = groups[g][0]
+          const requiredGap = minSpacing + FAMILY_GROUP_GAP
+          const actualGap = currLeftmost.x - prevRightmost.x
+          if (actualGap < requiredGap) {
+            const shift = requiredGap - actualGap
+            // Shift current and all subsequent groups
+            for (let h = g; h < groups.length; h++) {
+              for (const node of groups[h]) {
+                node.x += shift
+              }
+            }
+            anyMoved = true
+          }
+        }
+      }
+
+      // Re-center parent couples above this row's nodes
+      if (recenterParentsOfRow(row, graph, nodes, centerId)) {
+        anyMoved = true
+      }
+    }
+
+    if (!anyMoved) break
+  }
+}
+
+/**
+ * Group nodes on the same row by family using union-find.
+ * Nodes that share at least one parent, or are partners, form one group.
+ */
+function groupByFamily(row: LayoutNode[], graph: FamilyGraph): LayoutNode[][] {
+  if (row.length === 0) return []
+
+  // Union-find with path compression
+  const uf = new Map<string, string>()
+
+  function find(x: string): string {
+    while (uf.get(x) !== x) {
+      uf.set(x, uf.get(uf.get(x)!)!)
+      x = uf.get(x)!
+    }
+    return x
   }
 
-  for (const row of rows.values()) {
-    if (row.length < 2) continue
-    row.sort((a, b) => a.x - b.x)
+  function union(a: string, b: string) {
+    const ra = find(a), rb = find(b)
+    if (ra !== rb) uf.set(ra, rb)
+  }
 
-    const minSpacing = CARD_WIDTH + CARD_MARGIN
+  for (const node of row) {
+    uf.set(node.personId, node.personId)
+  }
 
-    for (let i = 1; i < row.length; i++) {
-      const gap = row[i].x - row[i - 1].x
-      if (gap < minSpacing) {
-        const shift = minSpacing - gap
-        // Push this node and all subsequent nodes to the right
-        for (let j = i; j < row.length; j++) {
-          row[j].x += shift
-        }
+  // Union children of the same parent
+  const parentToRowChildren = new Map<string, string[]>()
+  for (const node of row) {
+    const familyNode = graph.get(node.personId)
+    if (!familyNode) continue
+    for (const pid of familyNode.parentIds) {
+      const list = parentToRowChildren.get(pid) ?? []
+      list.push(node.personId)
+      parentToRowChildren.set(pid, list)
+    }
+  }
+  for (const children of parentToRowChildren.values()) {
+    for (let i = 1; i < children.length; i++) {
+      union(children[0], children[i])
+    }
+  }
+
+  // Union partners on the same row
+  const rowIds = new Set(row.map(n => n.personId))
+  for (const node of row) {
+    const familyNode = graph.get(node.personId)
+    if (!familyNode) continue
+    for (const partnerId of familyNode.partnerIds) {
+      if (rowIds.has(partnerId)) {
+        union(node.personId, partnerId)
       }
     }
   }
+
+  // Collect groups
+  const groupMap = new Map<string, LayoutNode[]>()
+  for (const node of row) {
+    const root = find(node.personId)
+    const group = groupMap.get(root) ?? []
+    group.push(node)
+    groupMap.set(root, group)
+  }
+
+  return Array.from(groupMap.values())
+}
+
+/**
+ * Re-center parent couples above their children on the given row.
+ * Skips the center couple (they are the layout anchor).
+ */
+function recenterParentsOfRow(
+  row: LayoutNode[],
+  graph: FamilyGraph,
+  nodes: Map<string, LayoutNode>,
+  centerId: string,
+): boolean {
+  let moved = false
+  const processedCouples = new Set<string>()
+
+  // Determine the center couple IDs to skip
+  const centerFamilyNode = graph.get(centerId)
+  const centerCoupleIds = new Set<string>([centerId])
+  if (centerFamilyNode) {
+    for (const pid of centerFamilyNode.partnerIds) {
+      centerCoupleIds.add(pid)
+    }
+  }
+
+  for (const childNode of row) {
+    const familyNode = graph.get(childNode.personId)
+    if (!familyNode) continue
+
+    const placedParentIds = familyNode.parentIds.filter(id => nodes.has(id))
+    if (placedParentIds.length === 0) continue
+
+    // Expand to include partner (the couple)
+    const coupleIds = new Set(placedParentIds)
+    for (const pid of placedParentIds) {
+      const parentFamilyNode = graph.get(pid)
+      if (parentFamilyNode) {
+        for (const partnerId of parentFamilyNode.partnerIds) {
+          if (nodes.has(partnerId)) coupleIds.add(partnerId)
+        }
+      }
+    }
+
+    const coupleKey = Array.from(coupleIds).sort().join('|')
+    if (processedCouples.has(coupleKey)) continue
+    processedCouples.add(coupleKey)
+
+    // Skip the center couple — they are the anchor point
+    if (Array.from(coupleIds).every(id => centerCoupleIds.has(id))) continue
+
+    // Collect all placed children of this couple
+    const allChildIds = new Set<string>()
+    for (const pid of coupleIds) {
+      const pFamilyNode = graph.get(pid)
+      if (pFamilyNode) {
+        for (const cid of pFamilyNode.childIds) {
+          if (nodes.has(cid)) allChildIds.add(cid)
+        }
+      }
+    }
+
+    const childXs = Array.from(allChildIds).map(id => nodes.get(id)!.x)
+    if (childXs.length === 0) continue
+
+    const childCenterX = (Math.min(...childXs) + Math.max(...childXs)) / 2
+
+    const parentNodes = Array.from(coupleIds).map(id => nodes.get(id)!).filter(Boolean)
+    const parentCenterX = parentNodes.reduce((sum, p) => sum + p.x, 0) / parentNodes.length
+    const delta = childCenterX - parentCenterX
+
+    if (Math.abs(delta) > 0.5) {
+      for (const p of parentNodes) {
+        p.x += delta
+      }
+      moved = true
+    }
+  }
+
+  return moved
 }
 
 function placeNode(

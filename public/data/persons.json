@@ -320,5 +320,21 @@
     "stories": [],
     "contactInfo": null,
     "familySide": "jens"
+  },
+  {
+    "id": "karin-wernmark",
+    "firstName": "Karin",
+    "lastName": "Wernmark",
+    "birthName": null,
+    "birthDate": null,
+    "birthPlace": null,
+    "deathDate": null,
+    "deathPlace": null,
+    "gender": "female",
+    "occupation": null,
+    "photos": [],
+    "stories": [],
+    "contactInfo": null,
+    "familySide": "jens"
   }
 ]

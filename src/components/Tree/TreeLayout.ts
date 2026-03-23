@@ -32,9 +32,6 @@ export function computeTreeLayout(
     calculateGroupWidths(group)
   }
 
-  // Propagate ancestor widths into backbone children so placement leaves enough room
-  propagateAncestorWidths(center, ancestorGroups)
-
   const result = placeGroups(center, ancestorGroups, graph)
 
   // Post-placement: resolve cross-group overlaps on each row
@@ -43,50 +40,6 @@ export function computeTreeLayout(
   return result
 }
 
-/**
- * For each backbone child, ensure its group width is at least as wide as
- * the ancestor group that will be placed above it. This prevents groups
- * from overlapping because the placement algorithm centers ancestor groups
- * on backbone children's x-positions.
- */
-function propagateAncestorWidths(
-  group: FamilyGroup,
-  ancestorGroups: Map<string, FamilyGroup>,
-): void {
-  for (const child of group.children) {
-    if (child.type === 'backbone' && child.group) {
-      // The ancestor group for this person will be placed above their slot
-      const ancestorGroup = ancestorGroups.get(child.personId)
-      if (ancestorGroup) {
-        // This child's slot width must accommodate the ancestor group's width
-        const neededWidth = Math.max(child.group.width, ancestorGroup.width)
-        if (neededWidth > child.group.width) {
-          child.group.width = neededWidth
-        }
-        // Recurse: the ancestor group's backbone children may also need inflation
-        propagateAncestorWidths(ancestorGroup, ancestorGroups)
-      }
-      // Also recurse into the backbone child's own group
-      propagateAncestorWidths(child.group, ancestorGroups)
-    } else if (child.type === 'subgroup' && child.group) {
-      propagateAncestorWidths(child.group, ancestorGroups)
-    }
-  }
-
-  // Recalculate this group's width after inflating children
-  const parentRowWidth = group.parents.length >= 2
-    ? PARTNER_GAP + CARD_WIDTH + CARD_MARGIN
-    : CARD_WIDTH + CARD_MARGIN
-
-  const childWidths = group.children.map(c =>
-    c.type === 'leaf' ? CARD_WIDTH + CARD_MARGIN : c.group.width
-  )
-  const childrenRowWidth = childWidths.length > 0
-    ? childWidths.reduce((s, w) => s + w, 0) + (childWidths.length - 1) * CHILD_GAP
-    : 0
-
-  group.width = Math.max(parentRowWidth, childrenRowWidth) + 2 * GROUP_PADDING
-}
 
 /**
  * Simple row-based overlap resolution.
@@ -282,10 +235,17 @@ export function placeGroups(
     centerX: number,
     topY: number,
   ): void {
-    // Place parents
+    // Place parents — use dynamic partner gap to prevent ancestor group overlaps
     if (group.parents.length >= 2) {
-      const p0x = centerX - PARTNER_GAP / 2
-      const p1x = centerX + PARTNER_GAP / 2
+      // Check if each parent has an ancestor group that needs room above them
+      const p0ancestor = ancestorGroups.get(group.parents[0])
+      const p1ancestor = ancestorGroups.get(group.parents[1])
+      const p0halfWidth = p0ancestor ? p0ancestor.width / 2 : CARD_WIDTH / 2
+      const p1halfWidth = p1ancestor ? p1ancestor.width / 2 : CARD_WIDTH / 2
+      const effectivePartnerGap = Math.max(PARTNER_GAP, p0halfWidth + p1halfWidth + CHILD_GAP)
+
+      const p0x = centerX - effectivePartnerGap / 2
+      const p1x = centerX + effectivePartnerGap / 2
       emitNode(group.parents[0], p0x, topY)
       emitNode(group.parents[1], p1x, topY)
       emitLink(group.parents[0], group.parents[1], 'partner')

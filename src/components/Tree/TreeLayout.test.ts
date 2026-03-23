@@ -1,4 +1,4 @@
-import { computeTreeLayout, isAncestorOf, buildGroupTree, calculateGroupWidths } from './TreeLayout';
+import { computeTreeLayout, isAncestorOf, buildGroupTree, calculateGroupWidths, placeGroups } from './TreeLayout';
 import { buildFamilyGraph } from '../../utils/buildTree';
 import type { Person, Relationship, FamilyGroup } from '../../types';
 
@@ -489,5 +489,156 @@ describe('calculateGroupWidths', () => {
     calculateGroupWidths(group);
     // parentRow=320, childrenRow=0, max=320, +40 = 360
     expect(group.width).toBe(360);
+  });
+});
+
+describe('placeGroups', () => {
+  it('places center couple at y=0', () => {
+    const graph = buildFamilyGraph(
+      [makePerson({ id: 'a' }), makePerson({ id: 'b', gender: 'female' })],
+      [{ type: 'partner', from: 'a', to: 'b', status: 'current' }],
+    );
+    const { center, ancestorGroups } = buildGroupTree(graph, 'a');
+    calculateGroupWidths(center);
+    const result = placeGroups(center, ancestorGroups, graph);
+
+    const a = result.nodes.find(n => n.personId === 'a')!;
+    const b = result.nodes.find(n => n.personId === 'b')!;
+    expect(a.y).toBe(0);
+    expect(b.y).toBe(0);
+    expect(Math.abs(a.x - b.x)).toBeCloseTo(160, 0); // PARTNER_GAP
+  });
+
+  it('places children below parents', () => {
+    const persons = [
+      makePerson({ id: 'dad' }),
+      makePerson({ id: 'mom', gender: 'female' }),
+      makePerson({ id: 'child' }),
+    ];
+    const rels: Relationship[] = [
+      { type: 'partner', from: 'dad', to: 'mom', status: 'current' },
+      { type: 'parent', from: 'dad', to: 'child' },
+      { type: 'parent', from: 'mom', to: 'child' },
+    ];
+    const graph = buildFamilyGraph(persons, rels);
+    // Build a group manually for dad+mom with child as leaf
+    const group: FamilyGroup = {
+      parents: ['dad', 'mom'],
+      children: [{ type: 'leaf', personId: 'child' }],
+      width: 0, height: 0, x: 0, y: 0,
+    };
+    calculateGroupWidths(group);
+    const result = placeGroups(group, new Map(), graph);
+
+    const dad = result.nodes.find(n => n.personId === 'dad')!;
+    const child = result.nodes.find(n => n.personId === 'child')!;
+    expect(child.y).toBeGreaterThan(dad.y);
+  });
+
+  it('places ancestor group above center', () => {
+    const persons = [
+      makePerson({ id: 'child' }),
+      makePerson({ id: 'spouse', gender: 'female' }),
+      makePerson({ id: 'dad' }),
+      makePerson({ id: 'mom', gender: 'female' }),
+    ];
+    const rels: Relationship[] = [
+      { type: 'partner', from: 'child', to: 'spouse', status: 'current' },
+      { type: 'parent', from: 'dad', to: 'child' },
+      { type: 'parent', from: 'mom', to: 'child' },
+      { type: 'partner', from: 'dad', to: 'mom', status: 'current' },
+    ];
+    const graph = buildFamilyGraph(persons, rels);
+    const { center, ancestorGroups } = buildGroupTree(graph, 'child');
+    calculateGroupWidths(center);
+    for (const g of ancestorGroups.values()) calculateGroupWidths(g);
+
+    const result = placeGroups(center, ancestorGroups, graph);
+    const dad = result.nodes.find(n => n.personId === 'dad')!;
+    const child = result.nodes.find(n => n.personId === 'child')!;
+    expect(dad.y).toBeLessThan(child.y); // parents above
+  });
+
+  it('generates group frames', () => {
+    const graph = buildFamilyGraph(
+      [makePerson({ id: 'a' }), makePerson({ id: 'b', gender: 'female' })],
+      [{ type: 'partner', from: 'a', to: 'b', status: 'current' }],
+    );
+    const { center, ancestorGroups } = buildGroupTree(graph, 'a');
+    calculateGroupWidths(center);
+    const result = placeGroups(center, ancestorGroups, graph);
+    expect(result.groupFrames.length).toBeGreaterThan(0);
+    expect(result.groupFrames[0].width).toBeGreaterThan(0);
+    expect(result.groupFrames[0].height).toBeGreaterThan(0);
+  });
+
+  it('generates backbone links for ancestor connections', () => {
+    const persons = [
+      makePerson({ id: 'child' }),
+      makePerson({ id: 'spouse', gender: 'female' }),
+      makePerson({ id: 'dad' }),
+      makePerson({ id: 'mom', gender: 'female' }),
+    ];
+    const rels: Relationship[] = [
+      { type: 'partner', from: 'child', to: 'spouse', status: 'current' },
+      { type: 'parent', from: 'dad', to: 'child' },
+      { type: 'parent', from: 'mom', to: 'child' },
+      { type: 'partner', from: 'dad', to: 'mom', status: 'current' },
+    ];
+    const graph = buildFamilyGraph(persons, rels);
+    const { center, ancestorGroups } = buildGroupTree(graph, 'child');
+    calculateGroupWidths(center);
+    for (const g of ancestorGroups.values()) calculateGroupWidths(g);
+
+    const result = placeGroups(center, ancestorGroups, graph);
+    expect(result.backboneLinks.length).toBeGreaterThan(0);
+    // The link should connect 'child' in the parent group to 'child' in center
+    const childLink = result.backboneLinks.find(l => l.fromPersonId === 'child');
+    expect(childLink).toBeDefined();
+  });
+
+  it('no nodes overlap on same row', () => {
+    const persons = [
+      makePerson({ id: 'center' }),
+      makePerson({ id: 'spouse', gender: 'female' }),
+      makePerson({ id: 'dad' }),
+      makePerson({ id: 'mom', gender: 'female' }),
+      makePerson({ id: 'sib1' }),
+      makePerson({ id: 'sib2' }),
+      makePerson({ id: 'sib3' }),
+    ];
+    const rels: Relationship[] = [
+      { type: 'partner', from: 'center', to: 'spouse', status: 'current' },
+      { type: 'parent', from: 'dad', to: 'center' },
+      { type: 'parent', from: 'mom', to: 'center' },
+      { type: 'parent', from: 'dad', to: 'sib1' },
+      { type: 'parent', from: 'mom', to: 'sib1' },
+      { type: 'parent', from: 'dad', to: 'sib2' },
+      { type: 'parent', from: 'mom', to: 'sib2' },
+      { type: 'parent', from: 'dad', to: 'sib3' },
+      { type: 'parent', from: 'mom', to: 'sib3' },
+      { type: 'partner', from: 'dad', to: 'mom', status: 'current' },
+    ];
+    const graph = buildFamilyGraph(persons, rels);
+    const { center, ancestorGroups } = buildGroupTree(graph, 'center');
+    calculateGroupWidths(center);
+    for (const g of ancestorGroups.values()) calculateGroupWidths(g);
+
+    const result = placeGroups(center, ancestorGroups, graph);
+
+    // Check no overlaps per row
+    const rows = new Map<number, typeof result.nodes>();
+    for (const n of result.nodes) {
+      const row = rows.get(n.y) ?? [];
+      row.push(n);
+      rows.set(n.y, row);
+    }
+    for (const row of rows.values()) {
+      if (row.length < 2) continue;
+      row.sort((a, b) => a.x - b.x);
+      for (let i = 1; i < row.length; i++) {
+        expect(row[i].x - row[i - 1].x).toBeGreaterThanOrEqual(140);
+      }
+    }
   });
 });

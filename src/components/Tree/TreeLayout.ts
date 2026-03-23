@@ -1,14 +1,15 @@
 import { buildFamilyGraph, type FamilyGraph } from '../../utils/buildTree'
-import { CARD_WIDTH } from '../PersonCard/PersonCardMini'
-import type { Person, Relationship, LayoutNode, LayoutLink, FamilyGroup, GroupChild } from '../../types'
+import { CARD_WIDTH, CARD_HEIGHT } from '../PersonCard/PersonCardMini'
+import type { Person, Relationship, LayoutNode, LayoutLink, FamilyGroup, GroupChild, GroupFrame, BackboneLink, TreeLayoutResult } from '../../types'
 
-const GENERATION_GAP = 300
+const GENERATION_GAP = 200
 const SIBLING_GAP = 250
 const PARTNER_GAP = 160
 const FAMILY_GROUP_GAP = 100
 const MAX_RESOLVE_ITERATIONS = 10
 const CHILD_GAP = 40
 const GROUP_PADDING = 20
+const BACKBONE_GAP = 120
 
 /**
  * Vertical bottom-up tree layout with generation-based rows.
@@ -605,6 +606,202 @@ export function calculateGroupWidths(group: FamilyGroup): void {
     : 0
 
   group.width = Math.max(parentRowWidth, childrenRowWidth) + 2 * GROUP_PADDING
+}
+
+/**
+ * Top-down placement of family groups.
+ *
+ * Places the center group at (0, 0), then recursively places ancestor groups
+ * above the persons they connect to. Returns positioned LayoutNodes, GroupFrames,
+ * and BackboneLinks connecting duplicate backbone person representations.
+ */
+export function placeGroups(
+  center: FamilyGroup,
+  ancestorGroups: Map<string, FamilyGroup>,
+  graph: FamilyGraph,
+): TreeLayoutResult {
+  const placedNodes = new Map<string, LayoutNode>()
+  const groupFrames: GroupFrame[] = []
+  const backboneLinks: BackboneLink[] = []
+
+  // Track backbone child positions separately (these are secondary positions)
+  const backboneChildPositions = new Map<string, { x: number; y: number }>()
+
+  /**
+   * Place a person as a LayoutNode at the given position.
+   * If the person is already placed (as a parent in their own group), skip.
+   */
+  function emitNode(personId: string, x: number, y: number): void {
+    if (placedNodes.has(personId)) return
+    const familyNode = graph.get(personId)
+    if (!familyNode) return
+    placedNodes.set(personId, { personId, person: familyNode.person, x, y, links: [] })
+  }
+
+  /**
+   * Add a link to a node's links array.
+   */
+  function emitLink(fromId: string, toId: string, type: LayoutLink['type']): void {
+    const from = placedNodes.get(fromId)
+    if (from) {
+      from.links.push({ targetId: toId, type })
+    }
+  }
+
+  /**
+   * Place the contents of a single FamilyGroup: parents at topY, children below.
+   * Returns the positions of all persons placed within this group.
+   */
+  function placeGroupContents(
+    group: FamilyGroup,
+    centerX: number,
+    topY: number,
+  ): void {
+    // Place parents
+    if (group.parents.length >= 2) {
+      const p0x = centerX - PARTNER_GAP / 2
+      const p1x = centerX + PARTNER_GAP / 2
+      emitNode(group.parents[0], p0x, topY)
+      emitNode(group.parents[1], p1x, topY)
+      emitLink(group.parents[0], group.parents[1], 'partner')
+    } else if (group.parents.length === 1) {
+      emitNode(group.parents[0], centerX, topY)
+    }
+
+    // If no children, calculate frame and return
+    if (group.children.length === 0) {
+      const height = CARD_HEIGHT + 2 * GROUP_PADDING
+      groupFrames.push({
+        x: centerX - group.width / 2,
+        y: topY - GROUP_PADDING,
+        width: group.width,
+        height,
+      })
+      return
+    }
+
+    // Place children below
+    const childrenY = topY + GENERATION_GAP
+
+    // Calculate total width of all children
+    const childWidths = group.children.map(c =>
+      c.type === 'leaf' ? CARD_WIDTH + CARD_MARGIN : c.group.width
+    )
+    const totalChildWidth = childWidths.reduce((s, w) => s + w, 0)
+      + (childWidths.length - 1) * CHILD_GAP
+
+    let startX = centerX - totalChildWidth / 2
+
+    for (let i = 0; i < group.children.length; i++) {
+      const child = group.children[i]
+      const childWidth = childWidths[i]
+
+      const childCenterX = startX + childWidth / 2
+
+      if (child.type === 'leaf') {
+        emitNode(child.personId, childCenterX, childrenY)
+
+        // Add parent-child links
+        for (const parentId of group.parents) {
+          emitLink(parentId, child.personId, 'parent-child')
+        }
+      } else if (child.type === 'backbone') {
+        // Backbone child: record their position for backbone link,
+        // but DON'T emit a LayoutNode here (they'll be emitted as a parent
+        // in the group closer to center, or they're the center person).
+        backboneChildPositions.set(child.personId, { x: childCenterX, y: childrenY })
+
+        // Add parent-child links from this group's parents.
+        for (const parentId of group.parents) {
+          emitLink(parentId, child.personId, 'parent-child')
+        }
+
+        // Recursively place the backbone child's group contents (their family)
+        placeGroupContents(child.group, childCenterX, childrenY)
+      } else {
+        // subgroup
+        placeGroupContents(child.group, childCenterX, childrenY)
+
+        // Add parent-child links from this group's parents to the subgroup's parent(s)
+        for (const parentId of group.parents) {
+          emitLink(parentId, child.personId, 'parent-child')
+        }
+      }
+
+      startX += childWidth + CHILD_GAP
+    }
+
+    // Emit group frame
+    const height = GENERATION_GAP + CARD_HEIGHT + 2 * GROUP_PADDING
+    groupFrames.push({
+      x: centerX - group.width / 2,
+      y: topY - GROUP_PADDING,
+      width: group.width,
+      height,
+    })
+  }
+
+  /**
+   * Place ancestor groups recursively above a person.
+   */
+  function placeAncestors(
+    personId: string,
+    personX: number,
+    personY: number,
+  ): void {
+    const ancestorGroup = ancestorGroups.get(personId)
+    if (!ancestorGroup) return
+
+    // Calculate the ancestor group's height
+    const groupHasChildren = ancestorGroup.children.length > 0
+    const groupHeight = groupHasChildren
+      ? GENERATION_GAP + CARD_HEIGHT + 2 * GROUP_PADDING
+      : CARD_HEIGHT + 2 * GROUP_PADDING
+
+    // Place the ancestor group above the person
+    const ancestorGroupTop = personY - BACKBONE_GAP - groupHeight + GROUP_PADDING
+
+    placeGroupContents(ancestorGroup, personX, ancestorGroupTop)
+
+    // Find the backbone child position and emit a backbone link
+    const backbonePos = backboneChildPositions.get(personId)
+    const primaryNode = placedNodes.get(personId)
+    if (backbonePos && primaryNode) {
+      backboneLinks.push({
+        fromPersonId: personId,
+        toPersonId: personId,
+        points: [
+          [backbonePos.x, backbonePos.y + CARD_HEIGHT / 2],
+          [primaryNode.x, primaryNode.y - CARD_HEIGHT / 2],
+        ],
+      })
+    }
+
+    // Recurse: for each parent in the ancestor group, check if they have ancestors
+    for (const parentId of ancestorGroup.parents) {
+      const parentNode = placedNodes.get(parentId)
+      if (parentNode) {
+        placeAncestors(parentId, parentNode.x, ancestorGroupTop)
+      }
+    }
+  }
+
+  // 1. Place center group at (0, 0)
+  placeGroupContents(center, 0, 0)
+
+  // 2. Place ancestor groups for each person in the center couple
+  for (const parentId of center.parents) {
+    const parentNode = placedNodes.get(parentId)
+    if (parentNode) {
+      placeAncestors(parentId, parentNode.x, parentNode.y)
+    }
+  }
+
+  return {
+    nodes: Array.from(placedNodes.values()),
+    groupFrames,
+    backboneLinks,
+  }
 }
 
 /**

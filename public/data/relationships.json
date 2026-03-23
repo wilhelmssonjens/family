@@ -134,5 +134,10 @@
     "type": "parent",
     "from": "lena-ahlbck",
     "to": "johan-ahlbck"
+  },
+  {
+    "type": "parent",
+    "from": "tor-ahlbck",
+    "to": "johan-ahlbck"
   }
 ]

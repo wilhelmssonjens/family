@@ -41,3 +41,46 @@ export interface FamilyData {
   persons: Person[]
   relationships: Relationship[]
 }
+
+export interface LayoutLink {
+  targetId: string
+  type: 'partner' | 'parent-child'
+}
+
+export interface LayoutNode {
+  personId: string
+  person: Person
+  x: number
+  y: number
+  links: LayoutLink[]
+}
+
+export type GroupChild =
+  | { type: 'leaf'; personId: string }
+  | { type: 'subgroup'; personId: string; group: FamilyGroup }
+  | { type: 'backbone'; personId: string; group: FamilyGroup }
+
+export interface FamilyGroup {
+  parents: string[]
+  children: GroupChild[]
+  width: number
+  height: number
+  x: number
+  y: number
+}
+
+export interface GroupFrame {
+  x: number; y: number; width: number; height: number
+}
+
+export interface BackboneLink {
+  fromPersonId: string
+  toPersonId: string
+  points: [number, number][]
+}
+
+export interface TreeLayoutResult {
+  nodes: LayoutNode[]
+  groupFrames: GroupFrame[]
+  backboneLinks: BackboneLink[]
+}

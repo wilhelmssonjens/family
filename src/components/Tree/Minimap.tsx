@@ -1,4 +1,4 @@
-import type { LayoutNode } from './TreeLayout'
+import type { LayoutNode } from '../../types'
 
 interface Props {
   nodes: LayoutNode[]

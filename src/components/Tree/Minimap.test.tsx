@@ -1,6 +1,6 @@
 import { render } from '@testing-library/react';
 import { Minimap } from './Minimap';
-import type { LayoutNode } from './TreeLayout';
+import type { LayoutNode } from '../../types';
 
 const makePerson = () => ({
   id: 'x',

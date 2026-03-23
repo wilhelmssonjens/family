@@ -1,19 +1,6 @@
 import { buildFamilyGraph, type FamilyGraph } from '../../utils/buildTree'
 import { CARD_WIDTH } from '../PersonCard/PersonCardMini'
-import type { Person, Relationship } from '../../types'
-
-export interface LayoutLink {
-  targetId: string
-  type: 'partner' | 'parent-child'
-}
-
-export interface LayoutNode {
-  personId: string
-  person: Person
-  x: number
-  y: number
-  links: LayoutLink[]
-}
+import type { Person, Relationship, LayoutNode, LayoutLink } from '../../types'
 
 const GENERATION_GAP = 300
 const SIBLING_GAP = 250

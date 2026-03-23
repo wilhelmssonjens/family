@@ -1,6 +1,6 @@
-import { computeTreeLayout, isAncestorOf, buildGroupTree } from './TreeLayout';
+import { computeTreeLayout, isAncestorOf, buildGroupTree, calculateGroupWidths } from './TreeLayout';
 import { buildFamilyGraph } from '../../utils/buildTree';
-import type { Person, Relationship } from '../../types';
+import type { Person, Relationship, FamilyGroup } from '../../types';
 
 const makePerson = (overrides: Partial<Person> & { id: string }): Person => ({
   firstName: 'Test',
@@ -423,5 +423,71 @@ describe('buildGroupTree', () => {
     expect(ancestorGroups.has('dad')).toBe(true);
     expect(ancestorGroups.get('dad')!.parents).toContain('grandpa');
     expect(ancestorGroups.get('dad')!.parents).toContain('grandma');
+  });
+});
+
+describe('calculateGroupWidths', () => {
+  it('couple with one leaf child', () => {
+    const group: FamilyGroup = {
+      parents: ['a', 'b'], children: [{ type: 'leaf', personId: 'c' }],
+      width: 0, height: 0, x: 0, y: 0,
+    };
+    calculateGroupWidths(group);
+    // parentRow=320, childrenRow=160, max=320, +40 padding = 360
+    expect(group.width).toBe(360);
+  });
+
+  it('three leaf children', () => {
+    const group: FamilyGroup = {
+      parents: ['a', 'b'],
+      children: [
+        { type: 'leaf', personId: 'c1' },
+        { type: 'leaf', personId: 'c2' },
+        { type: 'leaf', personId: 'c3' },
+      ],
+      width: 0, height: 0, x: 0, y: 0,
+    };
+    calculateGroupWidths(group);
+    // childrenRow = 3*160 + 2*40 = 560, parentRow=320, max=560, +40 = 600
+    expect(group.width).toBe(600);
+  });
+
+  it('single parent group', () => {
+    const group: FamilyGroup = {
+      parents: ['a'], children: [{ type: 'leaf', personId: 'c' }],
+      width: 0, height: 0, x: 0, y: 0,
+    };
+    calculateGroupWidths(group);
+    // parentRow=160, childrenRow=160, max=160, +40 = 200
+    expect(group.width).toBe(200);
+  });
+
+  it('nested subgroup calculated bottom-up', () => {
+    const sub: FamilyGroup = {
+      parents: ['aunt'], children: [{ type: 'leaf', personId: 'cousin' }],
+      width: 0, height: 0, x: 0, y: 0,
+    };
+    const group: FamilyGroup = {
+      parents: ['dad', 'mom'],
+      children: [
+        { type: 'subgroup', personId: 'aunt', group: sub },
+        { type: 'leaf', personId: 'uncle' },
+      ],
+      width: 0, height: 0, x: 0, y: 0,
+    };
+    calculateGroupWidths(group);
+    expect(sub.width).toBe(200);  // single parent + 1 leaf
+    // childrenRow = 200 + 160 + 40 = 400, parentRow=320, max=400, +40 = 440
+    expect(group.width).toBe(440);
+  });
+
+  it('group with no children', () => {
+    const group: FamilyGroup = {
+      parents: ['a', 'b'], children: [],
+      width: 0, height: 0, x: 0, y: 0,
+    };
+    calculateGroupWidths(group);
+    // parentRow=320, childrenRow=0, max=320, +40 = 360
+    expect(group.width).toBe(360);
   });
 });

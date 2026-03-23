@@ -7,6 +7,8 @@ const SIBLING_GAP = 250
 const PARTNER_GAP = 160
 const FAMILY_GROUP_GAP = 100
 const MAX_RESOLVE_ITERATIONS = 10
+const CHILD_GAP = 40
+const GROUP_PADDING = 20
 
 /**
  * Vertical bottom-up tree layout with generation-based rows.
@@ -576,6 +578,33 @@ export function buildGroupTree(
   }
 
   return { center: centerGroup, ancestorGroups }
+}
+
+/**
+ * Recursively calculate the width of each FamilyGroup, bottom-up.
+ * Children are calculated first so their widths are available when computing the parent group.
+ * Mutates the `width` field on the group and all nested groups.
+ */
+export function calculateGroupWidths(group: FamilyGroup): void {
+  // Bottom-up: calculate children first
+  for (const child of group.children) {
+    if ((child.type === 'subgroup' || child.type === 'backbone') && child.group) {
+      calculateGroupWidths(child.group)
+    }
+  }
+
+  const parentRowWidth = group.parents.length >= 2
+    ? PARTNER_GAP + CARD_WIDTH + CARD_MARGIN
+    : CARD_WIDTH + CARD_MARGIN
+
+  const childWidths = group.children.map(c =>
+    c.type === 'leaf' ? CARD_WIDTH + CARD_MARGIN : c.group.width
+  )
+  const childrenRowWidth = childWidths.length > 0
+    ? childWidths.reduce((s, w) => s + w, 0) + (childWidths.length - 1) * CHILD_GAP
+    : 0
+
+  group.width = Math.max(parentRowWidth, childrenRowWidth) + 2 * GROUP_PADDING
 }
 
 /**

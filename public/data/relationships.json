@@ -149,5 +149,15 @@
     "type": "parent",
     "from": "greta",
     "to": "arne-johansson"
+  },
+  {
+    "type": "parent",
+    "from": "lennart",
+    "to": "inger-sand"
+  },
+  {
+    "type": "parent",
+    "from": "greta",
+    "to": "inger-sand"
   }
 ]

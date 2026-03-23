@@ -32,12 +32,60 @@ export function computeTreeLayout(
     calculateGroupWidths(group)
   }
 
+  // Propagate ancestor widths into backbone children so placement leaves enough room
+  propagateAncestorWidths(center, ancestorGroups)
+
   const result = placeGroups(center, ancestorGroups, graph)
 
   // Post-placement: resolve cross-group overlaps on each row
   resolveRowOverlaps(result.nodes)
 
   return result
+}
+
+/**
+ * For each backbone child, ensure its group width is at least as wide as
+ * the ancestor group that will be placed above it. This prevents groups
+ * from overlapping because the placement algorithm centers ancestor groups
+ * on backbone children's x-positions.
+ */
+function propagateAncestorWidths(
+  group: FamilyGroup,
+  ancestorGroups: Map<string, FamilyGroup>,
+): void {
+  for (const child of group.children) {
+    if (child.type === 'backbone' && child.group) {
+      // The ancestor group for this person will be placed above their slot
+      const ancestorGroup = ancestorGroups.get(child.personId)
+      if (ancestorGroup) {
+        // This child's slot width must accommodate the ancestor group's width
+        const neededWidth = Math.max(child.group.width, ancestorGroup.width)
+        if (neededWidth > child.group.width) {
+          child.group.width = neededWidth
+        }
+        // Recurse: the ancestor group's backbone children may also need inflation
+        propagateAncestorWidths(ancestorGroup, ancestorGroups)
+      }
+      // Also recurse into the backbone child's own group
+      propagateAncestorWidths(child.group, ancestorGroups)
+    } else if (child.type === 'subgroup' && child.group) {
+      propagateAncestorWidths(child.group, ancestorGroups)
+    }
+  }
+
+  // Recalculate this group's width after inflating children
+  const parentRowWidth = group.parents.length >= 2
+    ? PARTNER_GAP + CARD_WIDTH + CARD_MARGIN
+    : CARD_WIDTH + CARD_MARGIN
+
+  const childWidths = group.children.map(c =>
+    c.type === 'leaf' ? CARD_WIDTH + CARD_MARGIN : c.group.width
+  )
+  const childrenRowWidth = childWidths.length > 0
+    ? childWidths.reduce((s, w) => s + w, 0) + (childWidths.length - 1) * CHILD_GAP
+    : 0
+
+  group.width = Math.max(parentRowWidth, childrenRowWidth) + 2 * GROUP_PADDING
 }
 
 /**
@@ -245,15 +293,22 @@ export function placeGroups(
       emitNode(group.parents[0], centerX, topY)
     }
 
-    // If no children, calculate frame and return
+    // If no children: only emit frame if at least one parent was actually placed here
+    // (backbone child groups often have no new nodes to place)
     if (group.children.length === 0) {
-      const height = CARD_HEIGHT + 2 * GROUP_PADDING
-      groupFrames.push({
-        x: centerX - group.width / 2,
-        y: topY - GROUP_PADDING,
-        width: group.width,
-        height,
+      const anyParentPlacedHere = group.parents.some(pid => {
+        const node = placedNodes.get(pid)
+        return node && Math.abs(node.x - centerX) < PARTNER_GAP && Math.abs(node.y - topY) < 1
       })
+      if (anyParentPlacedHere) {
+        const height = CARD_HEIGHT + 2 * GROUP_PADDING
+        groupFrames.push({
+          x: centerX - group.width / 2,
+          y: topY - GROUP_PADDING,
+          width: group.width,
+          height,
+        })
+      }
       return
     }
 

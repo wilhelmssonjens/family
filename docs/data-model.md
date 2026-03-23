@@ -3,7 +3,7 @@
 ## Filer
 - `public/data/persons.json` — Array med Person-objekt
 - `public/data/relationships.json` — Array med Relationship-objekt
-- `public/photos/` — Bilder, refererade i Person.photos
+- Foton lagras i **Vercel Blob** (publika URL:er i Person.photos)
 
 ## Person
 
@@ -19,7 +19,7 @@ interface Person {
   deathPlace: string | null
   gender: 'male' | 'female' | 'other'
   occupation: string | null
-  photos: string[]         // Sökvägar relativt public/ ("photos/jens-1.jpg")
+  photos: string[]         // Vercel Blob URL:er eller lokala sökvägar
   stories: Story[]
   contactInfo: string | null
   familySide: 'jens' | 'klara' | 'center' // Styr placering i trädet
@@ -47,9 +47,23 @@ interface Relationship {
 - `parentIds`, `childIds`, `partnerIds` — för snabb lookup i alla riktningar
 - Används av `getParents()`, `getChildren()`, `getSiblings()`, `getPartners()`
 
+## API-operationer (submit-direct.ts)
+
+| `relationType` | Vad händer |
+|----------------|------------|
+| `parent`/`child`/`sibling`/`partner` | Skapar ny person + relation |
+| `edit` | Uppdaterar befintlig person |
+| `delete` | Tar bort person + alla dess relationer |
+| `link` | Skapar bara en relation mellan två befintliga personer |
+
+Alla operationer committar direkt till GitHub via API:et. Duplikatskydd via `addRelationIfNew()`.
+
 ## Hur man lägger till en person
 
+**Via UI:t** (rekommenderat): Klicka på en person → "Lägg till släkting" → välj relationstyp → fyll i formulär eller sök befintlig person.
+
+**Manuellt:**
 1. Lägg till Person-objekt i `public/data/persons.json`
 2. Lägg till Relationship-objekt i `public/data/relationships.json`
-3. Sätt `familySide` korrekt (`jens` för Jens släkt, `klara` för Klaras)
+3. Sätt `familySide` korrekt (`jens` för Jens släkt, `klara` för Klaras, `center` för centerparet)
 4. Deploya (push till main → Vercel auto-deploy)

@@ -3,7 +3,7 @@
 ## Vad
 Interaktiv släkthemsida centrerad kring Jens & Klara. Horisontellt trädvy med pan/zoom, personkort, sök, galleri. Besökare kan bidra med info via formulär. All data i JSON-filer i repot.
 
-**Stack:** React 18, TypeScript, Vite, D3.js (SVG), Tailwind CSS, React Router, Vercel (hosting + serverless)
+**Stack:** React 19, TypeScript, Vite 8, D3.js (SVG), Tailwind CSS 4, React Router 7, Vercel (hosting + serverless + Blob)
 
 ## Projektstruktur
 ```
@@ -18,9 +18,10 @@ src/
     Search/           # SearchView med live-filtrering
     Gallery/          # GalleryView med familjesida-filter
     Layout/           # Header med navigation
+    NameSuggestInput  # Autocomplete-komponent för namnfält
   contexts/           # FamilyDataContext (data-fetching)
   hooks/              # useSearch
-  utils/              # buildTree, formatPerson
+  utils/              # buildTree, formatPerson, compressImage
   types/              # Person, Relationship, TreeNode
 api/                  # Vercel serverless functions
   submit-contribution.ts  # GitHub Issue-flöde (med godkännande)

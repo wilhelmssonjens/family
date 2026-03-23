@@ -32,6 +32,6 @@ dist-ssr
 image.png
 .vercel
 
-# Source material images
-*.jpg
-image copy.png
+# Temporary/debug images in root
+/*.jpg
+/*.png

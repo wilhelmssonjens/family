@@ -15,9 +15,10 @@ public/data/*.json ──fetch()──> FamilyDataContext ──> TreeView/Searc
                                                       ├── Visa alla detaljer
                                                       ├── Redigera inline → api/submit-direct.ts
                                                       └── Lägg till släkting → AddRelativeModal
-                                                           │ (skicka)
+                                                           │ (ny person / koppla befintlig)
                                              api/submit-direct.ts ──GitHub API──> public/data/*.json
                                              api/submit-contribution.ts ──GitHub API──> GitHub Issue
+                                             api/upload-photo.ts ──Vercel Blob──> publik URL
 ```
 
 ## Hosting & Deploy

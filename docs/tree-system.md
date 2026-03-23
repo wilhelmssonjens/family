@@ -22,14 +22,13 @@ Horisontell trädvy renderad med D3.js i SVG. Jens & Klara i mitten, Jens släkt
 
 ### Placering
 1. Centerparet (Jens & Klara) placeras vid (±PARTNER_GAP/2, 0)
-2. `expandAncestors()` kallas rekursivt för varje sida:
-   - Föräldrar placeras vid `xBase = personX + direction * HORIZONTAL_GAP`
-   - Y-position bestäms av `findFreeSlot()` som hittar en ledig y-position
-   - Syskon placeras vertikalt under/ovanför personen
+2. `expandAncestorsByGeneration()` expanderar uppåt (BFS, generation för generation):
+   - Föräldrar placeras centrerade ovanför sina barn, partners sida vid sida
+   - Syskon placeras horisontellt i samma y-rad som den person de delar förälder med
+   - Om en förälder bara har en parent-relation men har en partner, placeras partnern automatiskt bredvid
 3. Barn till centerparet placeras nedanför (y > 0)
-
-### Kollisionshantering
-`findFreeSlot()` spårar upptagna y-positioner per x-kolumn och söker utåt från preferred position.
+4. `placeUnvisitedPartners()` fångar upp kvarvarande oplacerade partners
+5. `resolveOverlaps()` skjuter isär kort som överlappar
 
 ## Kopplingslinjer
 

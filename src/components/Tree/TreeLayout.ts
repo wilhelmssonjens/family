@@ -1,5 +1,5 @@
 import { buildFamilyGraph, type FamilyGraph } from '../../utils/buildTree'
-import { CARD_WIDTH, CARD_HEIGHT } from '../PersonCard/PersonCardMini'
+import { CARD_WIDTH } from '../PersonCard/PersonCardMini'
 import type { Person, Relationship } from '../../types'
 
 export interface LayoutLink {

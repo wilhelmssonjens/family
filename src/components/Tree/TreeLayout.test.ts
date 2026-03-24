@@ -280,6 +280,32 @@ describe('computeTreeLayout', () => {
     }
   });
 
+  it('places descendants of non-center persons', () => {
+    const p = [
+      makePerson({ id: 'center' }),
+      makePerson({ id: 'spouse', gender: 'female' }),
+      makePerson({ id: 'dad' }),
+      makePerson({ id: 'mom', gender: 'female' }),
+      makePerson({ id: 'sibling', gender: 'female' }),
+      makePerson({ id: 'nephew' }),
+    ];
+    const r: Relationship[] = [
+      { type: 'partner', from: 'center', to: 'spouse', status: 'current' },
+      { type: 'parent', from: 'dad', to: 'center' },
+      { type: 'parent', from: 'mom', to: 'center' },
+      { type: 'parent', from: 'dad', to: 'sibling' },
+      { type: 'parent', from: 'mom', to: 'sibling' },
+      { type: 'partner', from: 'dad', to: 'mom', status: 'current' },
+      { type: 'parent', from: 'sibling', to: 'nephew' },
+    ];
+    const layout = computeTreeLayout(p, r, 'center');
+    const nephewNode = layout.find(n => n.personId === 'nephew');
+    const siblingNode = layout.find(n => n.personId === 'sibling');
+    expect(nephewNode).toBeDefined();
+    expect(siblingNode).toBeDefined();
+    expect(nephewNode!.y).toBeGreaterThan(siblingNode!.y);
+  });
+
   it('creates parent-child links from both parents to all siblings', () => {
     const layout = computeTreeLayout(persons, relationships, 'jens');
     const fatherNode = layout.find(n => n.personId === 'jens-father')!;

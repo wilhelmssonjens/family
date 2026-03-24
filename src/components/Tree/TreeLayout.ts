@@ -78,6 +78,9 @@ export function computeTreeLayout(
   // Place unvisited partners next to their already-placed partner
   placeUnvisitedPartners(graph, nodes, visited)
 
+  // Place descendants of non-center persons (e.g. Hampus, child of Birgitta)
+  placeDescendants(graph, nodes, visited)
+
   // Resolve any overlapping cards with parent re-centering
   resolveOverlaps(nodes, graph, centerId)
 
@@ -240,6 +243,38 @@ function placeUnvisitedPartners(
           }
         }
       }
+    }
+  }
+}
+
+/**
+ * Place children of already-placed persons who haven't been visited yet.
+ * This handles descendants of non-center persons (e.g. Hampus, child of Birgitta).
+ * Iterates until no new nodes are placed.
+ */
+function placeDescendants(
+  graph: FamilyGraph,
+  nodes: Map<string, LayoutNode>,
+  visited: Set<string>,
+) {
+  let placedNew = true
+  while (placedNew) {
+    placedNew = false
+    for (const [personId, layoutNode] of Array.from(nodes)) {
+      const familyNode = graph.get(personId)
+      if (!familyNode) continue
+
+      const unplacedChildren = familyNode.childIds.filter(id => !visited.has(id))
+      if (unplacedChildren.length === 0) continue
+
+      const childY = layoutNode.y + GENERATION_GAP
+      unplacedChildren.forEach((childId, i) => {
+        const childX = layoutNode.x + (i - (unplacedChildren.length - 1) / 2) * SIBLING_GAP
+        placeNode(childId, childX, childY, graph, nodes)
+        visited.add(childId)
+        addLink(nodes, personId, childId, 'parent-child')
+        placedNew = true
+      })
     }
   }
 }

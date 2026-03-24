@@ -1,4 +1,5 @@
-import { computeTreeLayout } from './TreeLayout';
+import { computeTreeLayout, assignGenerations } from './TreeLayout';
+import { buildFamilyUnits } from '../../utils/buildTree';
 import type { Person, Relationship } from '../../types';
 
 const makePerson = (overrides: Partial<Person> & { id: string }): Person => ({
@@ -314,5 +315,236 @@ describe('computeTreeLayout', () => {
     const motherSiblingLinks = motherNode.links.filter(l => l.targetId === 'jens-sibling' && l.type === 'parent-child');
     expect(siblingLinks.length).toBeGreaterThan(0);
     expect(motherSiblingLinks.length).toBeGreaterThan(0);
+  });
+});
+
+describe('assignGenerations', () => {
+  // Simple family: center + partner, two parents, one sibling, two grandparents
+  const simplePersons: Person[] = [
+    makePerson({ id: 'center', firstName: 'Center' }),
+    makePerson({ id: 'spouse', firstName: 'Spouse', gender: 'female' }),
+    makePerson({ id: 'dad', firstName: 'Dad' }),
+    makePerson({ id: 'mom', firstName: 'Mom', gender: 'female' }),
+    makePerson({ id: 'sibling', firstName: 'Sibling' }),
+    makePerson({ id: 'grandpa', firstName: 'Grandpa' }),
+    makePerson({ id: 'grandma', firstName: 'Grandma', gender: 'female' }),
+    makePerson({ id: 'child1', firstName: 'Child1' }),
+  ];
+  const simpleRels: Relationship[] = [
+    { type: 'partner', from: 'center', to: 'spouse', status: 'current' },
+    { type: 'parent', from: 'dad', to: 'center' },
+    { type: 'parent', from: 'mom', to: 'center' },
+    { type: 'partner', from: 'dad', to: 'mom', status: 'current' },
+    { type: 'parent', from: 'dad', to: 'sibling' },
+    { type: 'parent', from: 'mom', to: 'sibling' },
+    { type: 'parent', from: 'grandpa', to: 'dad' },
+    { type: 'parent', from: 'grandma', to: 'dad' },
+    { type: 'partner', from: 'grandpa', to: 'grandma', status: 'current' },
+    { type: 'parent', from: 'center', to: 'child1' },
+    { type: 'parent', from: 'spouse', to: 'child1' },
+  ];
+
+  it('center person is generation 0', () => {
+    const units = buildFamilyUnits(simplePersons, simpleRels);
+    const gens = assignGenerations('center', units);
+    expect(gens.get('center')).toBe(0);
+  });
+
+  it('parents are generation -1', () => {
+    const units = buildFamilyUnits(simplePersons, simpleRels);
+    const gens = assignGenerations('center', units);
+    expect(gens.get('dad')).toBe(-1);
+    expect(gens.get('mom')).toBe(-1);
+  });
+
+  it('partners have same generation', () => {
+    const units = buildFamilyUnits(simplePersons, simpleRels);
+    const gens = assignGenerations('center', units);
+    // Center's spouse
+    expect(gens.get('spouse')).toBe(0);
+    // Dad's partner (mom) should have same gen as dad
+    expect(gens.get('mom')).toBe(gens.get('dad'));
+    // Grandparents should be partners at same gen
+    expect(gens.get('grandpa')).toBe(gens.get('grandma'));
+  });
+
+  it('grandparents are generation -2', () => {
+    const units = buildFamilyUnits(simplePersons, simpleRels);
+    const gens = assignGenerations('center', units);
+    expect(gens.get('grandpa')).toBe(-2);
+    expect(gens.get('grandma')).toBe(-2);
+  });
+
+  it('children of siblings are same generation as center children', () => {
+    // Sibling has a child — that child should be gen +1 (same as center's child)
+    const extPersons: Person[] = [
+      ...simplePersons,
+      makePerson({ id: 'nephew', firstName: 'Nephew' }),
+    ];
+    const extRels: Relationship[] = [
+      ...simpleRels,
+      { type: 'parent', from: 'sibling', to: 'nephew' },
+    ];
+    const units = buildFamilyUnits(extPersons, extRels);
+    const gens = assignGenerations('center', units);
+    expect(gens.get('nephew')).toBe(1);
+    expect(gens.get('child1')).toBe(1);
+  });
+
+  it('siblings have the same generation as center', () => {
+    const units = buildFamilyUnits(simplePersons, simpleRels);
+    const gens = assignGenerations('center', units);
+    expect(gens.get('sibling')).toBe(0);
+  });
+
+  it('children are generation +1', () => {
+    const units = buildFamilyUnits(simplePersons, simpleRels);
+    const gens = assignGenerations('center', units);
+    expect(gens.get('child1')).toBe(1);
+  });
+
+  it('all persons get a generation', () => {
+    const units = buildFamilyUnits(simplePersons, simpleRels);
+    const gens = assignGenerations('center', units);
+    for (const p of simplePersons) {
+      expect(gens.has(p.id)).toBe(true);
+    }
+  });
+
+  it('works with real family data expectations', () => {
+    // Build a mini version of the real data to test specific expected values
+    const realPersons: Person[] = [
+      makePerson({ id: 'jens', firstName: 'Jens' }),
+      makePerson({ id: 'klara', firstName: 'Klara', gender: 'female' }),
+      makePerson({ id: 'per', firstName: 'Per' }),
+      makePerson({ id: 'laila', firstName: 'Laila', gender: 'female' }),
+      makePerson({ id: 'eva', firstName: 'Eva', gender: 'female' }),
+      makePerson({ id: 'gunnar-w', firstName: 'Gunnar' }),
+      makePerson({ id: 'barbro', firstName: 'Barbro', gender: 'female' }),
+      makePerson({ id: 'birgitta', firstName: 'Birgitta', gender: 'female' }),
+      makePerson({ id: 'mats', firstName: 'Mats' }),
+      makePerson({ id: 'hampus-wikmark', firstName: 'Hampus' }),
+      makePerson({ id: 'knut', firstName: 'Knut' }),
+      makePerson({ id: 'jacob-wikmark', firstName: 'Jacob' }),
+      makePerson({ id: 'agnes', firstName: 'Agnes', gender: 'female' }),
+      makePerson({ id: 'konrad', firstName: 'Konrad' }),
+      makePerson({ id: 'augusta', firstName: 'Augusta', gender: 'female' }),
+      makePerson({ id: 'lennart', firstName: 'Lennart' }),
+      makePerson({ id: 'greta', firstName: 'Greta', gender: 'female' }),
+      makePerson({ id: 'arne-johansson', firstName: 'Arne' }),
+      makePerson({ id: 'inger-sand', firstName: 'Inger', gender: 'female' }),
+      makePerson({ id: 'karin-wernmark', firstName: 'Karin', gender: 'female' }),
+      makePerson({ id: 'tor-ahlbck', firstName: 'Tor' }),
+      makePerson({ id: 'lena-ahlbck', firstName: 'Lena', gender: 'female' }),
+      makePerson({ id: 'erik-ahlbck', firstName: 'Erik' }),
+      makePerson({ id: 'johan-ahlbck', firstName: 'Johan' }),
+    ];
+    const realRels: Relationship[] = [
+      { type: 'partner', from: 'jens', to: 'klara', status: 'current' },
+      { type: 'parent', from: 'per', to: 'jens' },
+      { type: 'parent', from: 'laila', to: 'jens' },
+      { type: 'partner', from: 'per', to: 'laila', status: 'current' },
+      { type: 'parent', from: 'per', to: 'eva' },
+      { type: 'parent', from: 'laila', to: 'eva' },
+      { type: 'parent', from: 'gunnar-w', to: 'per' },
+      { type: 'parent', from: 'barbro', to: 'per' },
+      { type: 'partner', from: 'gunnar-w', to: 'barbro', status: 'current' },
+      { type: 'parent', from: 'gunnar-w', to: 'birgitta' },
+      { type: 'parent', from: 'barbro', to: 'birgitta' },
+      { type: 'parent', from: 'gunnar-w', to: 'mats' },
+      { type: 'parent', from: 'barbro', to: 'mats' },
+      { type: 'parent', from: 'birgitta', to: 'hampus-wikmark' },
+      { type: 'parent', from: 'hampus-wikmark', to: 'knut' },
+      { type: 'parent', from: 'birgitta', to: 'jacob-wikmark' },
+      { type: 'parent', from: 'jacob-wikmark', to: 'agnes' },
+      { type: 'parent', from: 'konrad', to: 'gunnar-w' },
+      { type: 'parent', from: 'augusta', to: 'gunnar-w' },
+      { type: 'partner', from: 'konrad', to: 'augusta', status: 'current' },
+      { type: 'parent', from: 'lennart', to: 'laila' },
+      { type: 'parent', from: 'greta', to: 'laila' },
+      { type: 'partner', from: 'lennart', to: 'greta', status: 'current' },
+      { type: 'parent', from: 'lennart', to: 'arne-johansson' },
+      { type: 'parent', from: 'greta', to: 'arne-johansson' },
+      { type: 'parent', from: 'lennart', to: 'inger-sand' },
+      { type: 'parent', from: 'greta', to: 'inger-sand' },
+      { type: 'parent', from: 'lennart', to: 'karin-wernmark' },
+      { type: 'parent', from: 'greta', to: 'karin-wernmark' },
+      { type: 'parent', from: 'tor-ahlbck', to: 'klara' },
+      { type: 'parent', from: 'lena-ahlbck', to: 'klara' },
+      { type: 'partner', from: 'tor-ahlbck', to: 'lena-ahlbck', status: 'current' },
+      { type: 'parent', from: 'tor-ahlbck', to: 'erik-ahlbck' },
+      { type: 'parent', from: 'lena-ahlbck', to: 'erik-ahlbck' },
+      { type: 'parent', from: 'tor-ahlbck', to: 'johan-ahlbck' },
+      { type: 'parent', from: 'lena-ahlbck', to: 'johan-ahlbck' },
+    ];
+
+    const units = buildFamilyUnits(realPersons, realRels);
+    const gens = assignGenerations('jens', units);
+
+    // Center couple
+    expect(gens.get('jens')).toBe(0);
+    expect(gens.get('klara')).toBe(0);
+
+    // Parents
+    expect(gens.get('per')).toBe(-1);
+    expect(gens.get('laila')).toBe(-1);
+    expect(gens.get('tor-ahlbck')).toBe(-1);
+    expect(gens.get('lena-ahlbck')).toBe(-1);
+
+    // Siblings of center (Eva is sibling of Jens via Per+Laila)
+    expect(gens.get('eva')).toBe(0);
+
+    // Siblings of Klara
+    expect(gens.get('erik-ahlbck')).toBe(0);
+    expect(gens.get('johan-ahlbck')).toBe(0);
+
+    // Grandparents
+    expect(gens.get('gunnar-w')).toBe(-2);
+    expect(gens.get('barbro')).toBe(-2);
+    expect(gens.get('lennart')).toBe(-2);
+    expect(gens.get('greta')).toBe(-2);
+
+    // Siblings of Per (children of Gunnar+Barbro)
+    expect(gens.get('birgitta')).toBe(-1);
+    expect(gens.get('mats')).toBe(-1);
+
+    // Children of Birgitta (Hampus, Jacob) — Birgitta is gen -1, so her children are gen 0
+    expect(gens.get('hampus-wikmark')).toBe(0);
+    expect(gens.get('jacob-wikmark')).toBe(0);
+
+    // Grandchildren: Knut (child of Hampus), Agnes (child of Jacob)
+    expect(gens.get('knut')).toBe(1);
+    expect(gens.get('agnes')).toBe(1);
+
+    // Great-grandparents
+    expect(gens.get('konrad')).toBe(-3);
+    expect(gens.get('augusta')).toBe(-3);
+
+    // Siblings of Laila
+    expect(gens.get('arne-johansson')).toBe(-1);
+    expect(gens.get('inger-sand')).toBe(-1);
+    expect(gens.get('karin-wernmark')).toBe(-1);
+  });
+
+  it('handles a single person with no relationships', () => {
+    const singlePerson: Person[] = [makePerson({ id: 'alone', firstName: 'Alone' })];
+    const units = buildFamilyUnits(singlePerson, []);
+    const gens = assignGenerations('alone', units);
+    expect(gens.get('alone')).toBe(0);
+    expect(gens.size).toBe(1);
+  });
+
+  it('handles partner-only couple (no children)', () => {
+    const couplePersons: Person[] = [
+      makePerson({ id: 'a', firstName: 'A' }),
+      makePerson({ id: 'b', firstName: 'B', gender: 'female' }),
+    ];
+    const coupleRels: Relationship[] = [
+      { type: 'partner', from: 'a', to: 'b', status: 'current' },
+    ];
+    const units = buildFamilyUnits(couplePersons, coupleRels);
+    const gens = assignGenerations('a', units);
+    expect(gens.get('a')).toBe(0);
+    expect(gens.get('b')).toBe(0);
   });
 });

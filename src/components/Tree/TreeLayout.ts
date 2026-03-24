@@ -48,22 +48,125 @@ export function computeTreeLayout(
  */
 function resolveRowOverlaps(nodes: LayoutNode[]): void {
   const minSpacing = CARD_WIDTH + CARD_MARGIN
+  const MAX_ITERATIONS = 10
 
-  const rows = new Map<number, LayoutNode[]>()
-  for (const node of nodes) {
-    const row = rows.get(node.y) ?? []
-    row.push(node)
-    rows.set(node.y, row)
+  for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
+    let anyMoved = false
+
+    // Group by y-row
+    const rows = new Map<number, LayoutNode[]>()
+    for (const node of nodes) {
+      const row = rows.get(node.y) ?? []
+      row.push(node)
+      rows.set(node.y, row)
+    }
+
+    // Process rows bottom-to-top (children before parents)
+    const sortedYs = Array.from(rows.keys()).sort((a, b) => b - a)
+
+    for (const y of sortedYs) {
+      const row = rows.get(y)!
+      if (row.length < 2) continue
+      row.sort((a, b) => a.x - b.x)
+
+      for (let i = 1; i < row.length; i++) {
+        const gap = row[i].x - row[i - 1].x
+        if (gap < minSpacing) {
+          const shift = minSpacing - gap
+          for (let j = i; j < row.length; j++) {
+            row[j].x += shift
+          }
+          anyMoved = true
+        }
+      }
+    }
+
+    // Re-center parent couples above their children
+    // Build a map of parent→children from links
+    const parentChildMap = new Map<string, string[]>()
+    const nodeMap = new Map<string, LayoutNode>()
+    for (const node of nodes) {
+      nodeMap.set(node.personId, node)
+      for (const link of node.links) {
+        if (link.type === 'parent-child') {
+          const children = parentChildMap.get(node.personId) ?? []
+          children.push(link.targetId)
+          parentChildMap.set(node.personId, children)
+        }
+      }
+    }
+
+    // Find partner pairs
+    const partnerMap = new Map<string, string>()
+    for (const node of nodes) {
+      for (const link of node.links) {
+        if (link.type === 'partner') {
+          partnerMap.set(node.personId, link.targetId)
+        }
+      }
+    }
+
+    // Re-center each parent (or couple) above their children
+    const processedCouples = new Set<string>()
+    for (const [parentId, childIds] of parentChildMap) {
+      const coupleKey = [parentId, partnerMap.get(parentId)].filter(Boolean).sort().join('|')
+      if (processedCouples.has(coupleKey)) continue
+      processedCouples.add(coupleKey)
+
+      // Collect all children of this couple
+      const partnerId = partnerMap.get(parentId)
+      const allChildIds = new Set(childIds)
+      if (partnerId) {
+        const partnerChildren = parentChildMap.get(partnerId)
+        if (partnerChildren) partnerChildren.forEach(c => allChildIds.add(c))
+      }
+
+      const childNodes = Array.from(allChildIds).map(id => nodeMap.get(id)).filter(Boolean) as LayoutNode[]
+      if (childNodes.length === 0) continue
+
+      const childXs = childNodes.map(n => n.x)
+      const childCenter = (Math.min(...childXs) + Math.max(...childXs)) / 2
+
+      const parentNode = nodeMap.get(parentId)
+      if (!parentNode) continue
+
+      if (partnerId) {
+        const partnerNode = nodeMap.get(partnerId)
+        if (partnerNode) {
+          const coupleCenter = (parentNode.x + partnerNode.x) / 2
+          const delta = childCenter - coupleCenter
+          if (Math.abs(delta) > 1) {
+            parentNode.x += delta
+            partnerNode.x += delta
+            anyMoved = true
+          }
+        }
+      } else {
+        const delta = childCenter - parentNode.x
+        if (Math.abs(delta) > 1) {
+          parentNode.x += delta
+          anyMoved = true
+        }
+      }
+    }
+
+    if (!anyMoved) break
   }
 
-  for (const row of rows.values()) {
+  // Final pass: resolve any overlaps created by the last re-centering
+  const finalRows = new Map<number, LayoutNode[]>()
+  for (const node of nodes) {
+    const row = finalRows.get(node.y) ?? []
+    row.push(node)
+    finalRows.set(node.y, row)
+  }
+  for (const row of finalRows.values()) {
     if (row.length < 2) continue
     row.sort((a, b) => a.x - b.x)
     for (let i = 1; i < row.length; i++) {
       const gap = row[i].x - row[i - 1].x
       if (gap < minSpacing) {
         const shift = minSpacing - gap
-        // Shift this node and all subsequent nodes on the row
         for (let j = i; j < row.length; j++) {
           row[j].x += shift
         }
@@ -235,17 +338,10 @@ export function placeGroups(
     centerX: number,
     topY: number,
   ): void {
-    // Place parents — use dynamic partner gap to prevent ancestor group overlaps
+    // Place parents — keep couples visually together with normal PARTNER_GAP
     if (group.parents.length >= 2) {
-      // Check if each parent has an ancestor group that needs room above them
-      const p0ancestor = ancestorGroups.get(group.parents[0])
-      const p1ancestor = ancestorGroups.get(group.parents[1])
-      const p0halfWidth = p0ancestor ? p0ancestor.width / 2 : CARD_WIDTH / 2
-      const p1halfWidth = p1ancestor ? p1ancestor.width / 2 : CARD_WIDTH / 2
-      const effectivePartnerGap = Math.max(PARTNER_GAP, p0halfWidth + p1halfWidth + CHILD_GAP)
-
-      const p0x = centerX - effectivePartnerGap / 2
-      const p1x = centerX + effectivePartnerGap / 2
+      const p0x = centerX - PARTNER_GAP / 2
+      const p1x = centerX + PARTNER_GAP / 2
       emitNode(group.parents[0], p0x, topY)
       emitNode(group.parents[1], p1x, topY)
       emitLink(group.parents[0], group.parents[1], 'partner')

@@ -2,12 +2,12 @@ import { buildFamilyGraph, type FamilyGraph } from '../../utils/buildTree'
 import { CARD_WIDTH, CARD_HEIGHT } from '../PersonCard/PersonCardMini'
 import type { Person, Relationship, LayoutNode, LayoutLink, FamilyGroup, GroupChild, GroupFrame, BackboneLink, TreeLayoutResult } from '../../types'
 
-const GENERATION_GAP = 200
+const GENERATION_GAP = 160
 const PARTNER_GAP = 160
 const CARD_MARGIN = 20
 const CHILD_GAP = 40
 const GROUP_PADDING = 20
-const BACKBONE_GAP = 120
+const BACKBONE_GAP = 60
 
 /**
  * Group-based tree layout.
@@ -355,16 +355,24 @@ export function placeGroups(
 
     placeGroupContents(ancestorGroup, personX, ancestorGroupTop)
 
-    // Find the backbone child position and emit a backbone link
+    // Find the backbone child position and emit an orthogonal backbone link
     const backbonePos = backboneChildPositions.get(personId)
     const primaryNode = placedNodes.get(personId)
     if (backbonePos && primaryNode) {
+      const fromX = backbonePos.x
+      const fromY = backbonePos.y + CARD_HEIGHT / 2
+      const toX = primaryNode.x
+      const toY = primaryNode.y - CARD_HEIGHT / 2
+      const midY = (fromY + toY) / 2
+      // Orthogonal path: down → horizontal → down
       backboneLinks.push({
         fromPersonId: personId,
         toPersonId: personId,
         points: [
-          [backbonePos.x, backbonePos.y + CARD_HEIGHT / 2],
-          [primaryNode.x, primaryNode.y - CARD_HEIGHT / 2],
+          [fromX, fromY],
+          [fromX, midY],
+          [toX, midY],
+          [toX, toY],
         ],
       })
     }

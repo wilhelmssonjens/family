@@ -295,7 +295,7 @@ function spreadBySubtreeWidth(
   graph: FamilyGraph,
 ) {
   const nodeIds = Array.from(nodes.keys())
-  const leafWidth = CARD_WIDTH + CARD_MARGIN + PARTNER_GAP // space for a person + their partner
+  const leafWidth = CARD_WIDTH + CARD_MARGIN // 160px per person (partners placed separately)
 
   // Bottom-up: calculate subtree width for each placed node
   const subtreeWidth = new Map<string, number>()

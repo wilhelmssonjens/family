@@ -327,6 +327,134 @@ function addLink(
   }
 }
 
+// --- Measure pass ---
+
+/**
+ * Build lookup maps from familyUnits for quick person → unit lookups.
+ */
+export function buildFamilyLookups(familyUnits: FamilyUnit[]): {
+  unitsAsParent: Map<string, FamilyUnit[]>
+  unitsAsChild: Map<string, FamilyUnit[]>
+} {
+  const unitsAsParent = new Map<string, FamilyUnit[]>()
+  const unitsAsChild = new Map<string, FamilyUnit[]>()
+
+  for (const unit of familyUnits) {
+    for (const parentId of unit.parentIds) {
+      let list = unitsAsParent.get(parentId)
+      if (!list) {
+        list = []
+        unitsAsParent.set(parentId, list)
+      }
+      list.push(unit)
+    }
+    for (const childId of unit.childIds) {
+      let list = unitsAsChild.get(childId)
+      if (!list) {
+        list = []
+        unitsAsChild.set(childId, list)
+      }
+      list.push(unit)
+    }
+  }
+
+  return { unitsAsParent, unitsAsChild }
+}
+
+/**
+ * Measure the subtree width of a single person.
+ *
+ * - If the person has NO families where they are a parent → CARD_SLOT (one card slot).
+ * - If the person has families → return the MAX width across all their families.
+ * - Uses `visited` set to prevent infinite recursion (cycle protection).
+ */
+export function measurePerson(
+  personId: string,
+  unitsAsParent: Map<string, FamilyUnit[]>,
+  measuredWidths: Map<string, number>,
+  visited: Set<string>,
+): number {
+  if (visited.has(personId)) return CARD_SLOT
+  visited.add(personId)
+
+  const families = unitsAsParent.get(personId)
+  if (!families || families.length === 0) {
+    return CARD_SLOT
+  }
+
+  let maxWidth = 0
+  for (const family of families) {
+    const w = measureFamily(family.id, family, unitsAsParent, measuredWidths, visited)
+    if (w > maxWidth) maxWidth = w
+  }
+
+  return maxWidth
+}
+
+/**
+ * Measure the width of a single FamilyUnit.
+ *
+ * parentBlockWidth:
+ *   1 parent  → CARD_SLOT (160)
+ *   2 parents → PARTNER_GAP + CARD_WIDTH + CARD_MARGIN (320)
+ *
+ * If no children → parentBlockWidth
+ * Otherwise → max(parentBlockWidth, sum(childWidths) + CHILD_GAP * (childCount - 1))
+ */
+export function measureFamily(
+  familyId: string,
+  familyUnit: FamilyUnit | undefined,
+  unitsAsParent: Map<string, FamilyUnit[]>,
+  measuredWidths: Map<string, number>,
+  visited: Set<string>,
+): number {
+  // Return cached result if available
+  const cached = measuredWidths.get(familyId)
+  if (cached !== undefined) return cached
+
+  if (!familyUnit) return CARD_SLOT
+
+  const parentCount = familyUnit.parentIds.length
+  const parentBlockWidth = parentCount === 1
+    ? CARD_SLOT
+    : PARTNER_GAP + CARD_WIDTH + CARD_MARGIN
+
+  if (familyUnit.childIds.length === 0) {
+    measuredWidths.set(familyId, parentBlockWidth)
+    return parentBlockWidth
+  }
+
+  const childWidths = familyUnit.childIds.map(childId =>
+    measurePerson(childId, unitsAsParent, measuredWidths, visited)
+  )
+  const childrenTotal = childWidths.reduce((sum, w) => sum + w, 0)
+    + CHILD_GAP * (familyUnit.childIds.length - 1)
+
+  const width = Math.max(parentBlockWidth, childrenTotal)
+  measuredWidths.set(familyId, width)
+  return width
+}
+
+/**
+ * Measure all family units and return a map of familyUnitId → measured width.
+ * This is the top-level entry point for the measure pass.
+ */
+export function measureAllFamilies(
+  familyUnits: FamilyUnit[],
+): Map<string, number> {
+  const { unitsAsParent } = buildFamilyLookups(familyUnits)
+  const measuredWidths = new Map<string, number>()
+  const visited = new Set<string>()
+
+  for (const unit of familyUnits) {
+    if (!measuredWidths.has(unit.id)) {
+      measureFamily(unit.id, unit, unitsAsParent, measuredWidths, visited)
+    }
+  }
+
+  return measuredWidths
+}
+
 // --- Generation assignment ---
 
 /**

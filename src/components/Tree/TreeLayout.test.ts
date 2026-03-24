@@ -1,6 +1,7 @@
-import { computeTreeLayout, assignGenerations } from './TreeLayout';
+import { computeTreeLayout, assignGenerations, measurePerson, measureFamily, measureAllFamilies, buildFamilyLookups } from './TreeLayout';
 import { buildFamilyUnits } from '../../utils/buildTree';
 import type { Person, Relationship } from '../../types';
+import type { FamilyUnit } from '../../utils/buildTree';
 
 const makePerson = (overrides: Partial<Person> & { id: string }): Person => ({
   firstName: 'Test',
@@ -546,5 +547,205 @@ describe('assignGenerations', () => {
     const gens = assignGenerations('a', units);
     expect(gens.get('a')).toBe(0);
     expect(gens.get('b')).toBe(0);
+  });
+});
+
+// --- Measure pass tests ---
+
+// Constants mirrored from TreeLayout.ts for assertions
+const CARD_WIDTH = 140;
+const CARD_MARGIN = 20;
+const PARTNER_GAP = 160;
+const CHILD_GAP = 60;
+const CARD_SLOT = CARD_WIDTH + CARD_MARGIN; // 160
+const COUPLE_BLOCK = PARTNER_GAP + CARD_WIDTH + CARD_MARGIN; // 320
+
+describe('measure pass', () => {
+  it('leaf person has width CARD_WIDTH + CARD_MARGIN', () => {
+    // Single person, no relationships
+    const units = buildFamilyUnits(
+      [makePerson({ id: 'leaf', firstName: 'Leaf' })],
+      [],
+    );
+    const { unitsAsParent } = buildFamilyLookups(units);
+    const visited = new Set<string>();
+    const measuredWidths = new Map<string, number>();
+    const width = measurePerson('leaf', unitsAsParent, measuredWidths, visited);
+    expect(width).toBe(CARD_SLOT); // 160
+  });
+
+  it('couple without children has parentBlockWidth', () => {
+    const persons = [
+      makePerson({ id: 'a', firstName: 'A' }),
+      makePerson({ id: 'b', firstName: 'B', gender: 'female' }),
+    ];
+    const rels: Relationship[] = [
+      { type: 'partner', from: 'a', to: 'b', status: 'current' },
+    ];
+    const units = buildFamilyUnits(persons, rels);
+    const widths = measureAllFamilies(units);
+    // The family unit f-a-b has 2 parents, no children
+    const familyUnit = units.find(u => u.parentIds.includes('a') && u.parentIds.includes('b'))!;
+    expect(widths.get(familyUnit.id)).toBe(COUPLE_BLOCK); // 320
+  });
+
+  it('family with children: width = max(parentBlock, childrenTotal)', () => {
+    // Two parents + 2 leaf children
+    const persons = [
+      makePerson({ id: 'dad', firstName: 'Dad' }),
+      makePerson({ id: 'mom', firstName: 'Mom', gender: 'female' }),
+      makePerson({ id: 'child1', firstName: 'Child1' }),
+      makePerson({ id: 'child2', firstName: 'Child2' }),
+    ];
+    const rels: Relationship[] = [
+      { type: 'partner', from: 'dad', to: 'mom', status: 'current' },
+      { type: 'parent', from: 'dad', to: 'child1' },
+      { type: 'parent', from: 'mom', to: 'child1' },
+      { type: 'parent', from: 'dad', to: 'child2' },
+      { type: 'parent', from: 'mom', to: 'child2' },
+    ];
+    const units = buildFamilyUnits(persons, rels);
+    const widths = measureAllFamilies(units);
+    const familyUnit = units.find(u => u.parentIds.includes('dad'))!;
+    // parentBlockWidth = 320 (2 parents)
+    // childrenTotal = 160 + 160 + 60 = 380
+    // max(320, 380) = 380
+    expect(widths.get(familyUnit.id)).toBe(380);
+  });
+
+  it('nested families: width includes descendant widths', () => {
+    // Grandparent -> Parent+Spouse -> GrandChild
+    const persons = [
+      makePerson({ id: 'grandpa', firstName: 'Grandpa' }),
+      makePerson({ id: 'parent', firstName: 'Parent' }),
+      makePerson({ id: 'spouse', firstName: 'Spouse', gender: 'female' }),
+      makePerson({ id: 'grandchild', firstName: 'Grandchild' }),
+    ];
+    const rels: Relationship[] = [
+      { type: 'parent', from: 'grandpa', to: 'parent' },
+      { type: 'partner', from: 'parent', to: 'spouse', status: 'current' },
+      { type: 'parent', from: 'parent', to: 'grandchild' },
+      { type: 'parent', from: 'spouse', to: 'grandchild' },
+    ];
+    const units = buildFamilyUnits(persons, rels);
+    const widths = measureAllFamilies(units);
+
+    // parent+spouse family: 2 parents (320), 1 child grandchild(160) → max(320,160) = 320
+    const parentFamily = units.find(u => u.parentIds.includes('parent') && u.parentIds.includes('spouse'))!;
+    expect(widths.get(parentFamily.id)).toBe(320);
+
+    // measurePerson('parent') = max of families where parent is a parent
+    //   = measureFamily(parent+spouse family) = 320
+    // grandpa family: 1 parent (160), 1 child 'parent' with width 320 → max(160, 320) = 320
+    const grandpaFamily = units.find(u => u.parentIds.includes('grandpa'))!;
+    expect(widths.get(grandpaFamily.id)).toBe(320);
+  });
+
+  it('person with multiple families: width = max of all families', () => {
+    // Person has two partner families: one with 1 child, one with 3 children
+    const persons = [
+      makePerson({ id: 'parent', firstName: 'Parent' }),
+      makePerson({ id: 'partner1', firstName: 'Partner1', gender: 'female' }),
+      makePerson({ id: 'partner2', firstName: 'Partner2', gender: 'female' }),
+      makePerson({ id: 'child-a', firstName: 'ChildA' }),
+      makePerson({ id: 'child-b', firstName: 'ChildB' }),
+      makePerson({ id: 'child-c', firstName: 'ChildC' }),
+      makePerson({ id: 'child-d', firstName: 'ChildD' }),
+    ];
+    const rels: Relationship[] = [
+      { type: 'partner', from: 'parent', to: 'partner1', status: 'former' },
+      { type: 'partner', from: 'parent', to: 'partner2', status: 'current' },
+      { type: 'parent', from: 'parent', to: 'child-a' },
+      { type: 'parent', from: 'partner1', to: 'child-a' },
+      { type: 'parent', from: 'parent', to: 'child-b' },
+      { type: 'parent', from: 'partner2', to: 'child-b' },
+      { type: 'parent', from: 'parent', to: 'child-c' },
+      { type: 'parent', from: 'partner2', to: 'child-c' },
+      { type: 'parent', from: 'parent', to: 'child-d' },
+      { type: 'parent', from: 'partner2', to: 'child-d' },
+    ];
+    const units = buildFamilyUnits(persons, rels);
+    const { unitsAsParent } = buildFamilyLookups(units);
+
+    // Family 1 (parent+partner1): 2 parents (320), 1 child (160) → 320
+    // Family 2 (parent+partner2): 2 parents (320), 3 children (160+160+160+60+60=600) → 600
+    // measurePerson('parent') = max(320, 600) = 600
+    const visited = new Set<string>();
+    const measuredWidths = new Map<string, number>();
+    const width = measurePerson('parent', unitsAsParent, measuredWidths, visited);
+    expect(width).toBe(600);
+  });
+
+  it('single parent family uses narrower parentBlockWidth', () => {
+    // Single parent with 1 child
+    const persons = [
+      makePerson({ id: 'single-parent', firstName: 'SingleParent' }),
+      makePerson({ id: 'only-child', firstName: 'OnlyChild' }),
+    ];
+    const rels: Relationship[] = [
+      { type: 'parent', from: 'single-parent', to: 'only-child' },
+    ];
+    const units = buildFamilyUnits(persons, rels);
+    const widths = measureAllFamilies(units);
+    const familyUnit = units.find(u => u.parentIds.includes('single-parent'))!;
+    // parentBlockWidth = 160 (1 parent)
+    // childrenTotal = 160 (1 child)
+    // max(160, 160) = 160
+    expect(widths.get(familyUnit.id)).toBe(CARD_SLOT);
+  });
+
+  it('single parent with multiple children widens from children', () => {
+    // Like Birgitta with Hampus + Jacob (each having families)
+    const persons = [
+      makePerson({ id: 'birgitta', firstName: 'Birgitta', gender: 'female' }),
+      makePerson({ id: 'hampus', firstName: 'Hampus' }),
+      makePerson({ id: 'linnea', firstName: 'Linnea', gender: 'female' }),
+      makePerson({ id: 'knut', firstName: 'Knut' }),
+      makePerson({ id: 'jacob', firstName: 'Jacob' }),
+      makePerson({ id: 'karolina', firstName: 'Karolina', gender: 'female' }),
+      makePerson({ id: 'agnes', firstName: 'Agnes', gender: 'female' }),
+    ];
+    const rels: Relationship[] = [
+      { type: 'parent', from: 'birgitta', to: 'hampus' },
+      { type: 'partner', from: 'hampus', to: 'linnea', status: 'current' },
+      { type: 'parent', from: 'hampus', to: 'knut' },
+      { type: 'parent', from: 'linnea', to: 'knut' },
+      { type: 'parent', from: 'birgitta', to: 'jacob' },
+      { type: 'partner', from: 'jacob', to: 'karolina', status: 'current' },
+      { type: 'parent', from: 'jacob', to: 'agnes' },
+      { type: 'parent', from: 'karolina', to: 'agnes' },
+    ];
+    const units = buildFamilyUnits(persons, rels);
+    const widths = measureAllFamilies(units);
+
+    // Hampus+Linnea family: 2 parents (320), 1 child Knut (160) → 320
+    // Jacob+Karolina family: 2 parents (320), 1 child Agnes (160) → 320
+    // measurePerson(Hampus) = 320, measurePerson(Jacob) = 320
+    // Birgitta family: 1 parent (160), children = 320 + 320 + 60 = 700
+    // max(160, 700) = 700
+    const birgittaFamily = units.find(u =>
+      u.parentIds.includes('birgitta') && u.parentIds.length === 1
+    )!;
+    expect(widths.get(birgittaFamily.id)).toBe(700);
+  });
+
+  it('measureAllFamilies returns widths for all family units', () => {
+    const persons = [
+      makePerson({ id: 'dad', firstName: 'Dad' }),
+      makePerson({ id: 'mom', firstName: 'Mom', gender: 'female' }),
+      makePerson({ id: 'child', firstName: 'Child' }),
+    ];
+    const rels: Relationship[] = [
+      { type: 'partner', from: 'dad', to: 'mom', status: 'current' },
+      { type: 'parent', from: 'dad', to: 'child' },
+      { type: 'parent', from: 'mom', to: 'child' },
+    ];
+    const units = buildFamilyUnits(persons, rels);
+    const widths = measureAllFamilies(units);
+    // Every family unit should have a measured width
+    for (const unit of units) {
+      expect(widths.has(unit.id)).toBe(true);
+      expect(widths.get(unit.id)!).toBeGreaterThan(0);
+    }
   });
 });

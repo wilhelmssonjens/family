@@ -81,6 +81,9 @@ export function computeTreeLayout(
   // Place descendants of non-center persons (e.g. Hampus, child of Birgitta)
   placeDescendants(graph, nodes, visited)
 
+  // Spread siblings apart based on subtree widths (bottom-up)
+  spreadBySubtreeWidth(nodes, graph)
+
   // Resolve any overlapping cards with parent re-centering
   resolveOverlaps(nodes, graph, centerId)
 
@@ -99,34 +102,36 @@ function expandAncestorsByGeneration(
   nodes: Map<string, LayoutNode>,
   visited: Set<string>,
 ) {
-  let currentGenPersons = [startPersonId]
+  // Each person carries their own sibling-spread direction.
+  // Partners in a couple spread their siblings in OPPOSITE directions
+  // so paternal and maternal branches don't overlap.
+  let currentGen: { personId: string; dir: number }[] = [{ personId: startPersonId, dir: direction }]
   let generation = 1
 
-  while (currentGenPersons.length > 0) {
+  while (currentGen.length > 0) {
     const genY = -generation * GENERATION_GAP
 
-    const couples: { parentIds: string[]; childId: string }[] = []
+    const couples: { parentIds: string[]; childId: string; sibDir: number }[] = []
 
-    for (const personId of currentGenPersons) {
+    for (const { personId, dir } of currentGen) {
       const node = graph.get(personId)
       if (!node) continue
 
       const parentIds = node.parentIds.filter(id => !visited.has(id))
       if (parentIds.length === 0) continue
 
-      couples.push({ parentIds, childId: personId })
+      couples.push({ parentIds, childId: personId, sibDir: dir })
     }
 
     if (couples.length === 0) break
 
-    const nextGenPersons: string[] = []
+    const nextGen: { personId: string; dir: number }[] = []
 
-    for (const { parentIds, childId } of couples) {
+    for (const { parentIds, childId, sibDir } of couples) {
       const childNode = nodes.get(childId)
       if (!childNode) continue
 
-      // Place siblings of childId horizontally at same y, spreading in direction
-      // Check ALL parents for children (not just the first) to find half-siblings too
+      // Place siblings of childId horizontally, spreading in sibDir
       const siblingIds = new Set<string>()
       for (const pid of parentIds) {
         const parent = graph.get(pid)
@@ -141,7 +146,7 @@ function expandAncestorsByGeneration(
       const siblings = Array.from(siblingIds)
 
       siblings.forEach((sibId, j) => {
-        const sibX = childNode.x + (j + 1) * SIBLING_GAP * direction
+        const sibX = childNode.x + (j + 1) * SIBLING_GAP * sibDir
         placeNode(sibId, sibX, childNode.y, graph, nodes)
         visited.add(sibId)
       })
@@ -152,7 +157,7 @@ function expandAncestorsByGeneration(
       const maxX = Math.max(...allChildrenX)
       const centerX = (minX + maxX) / 2
 
-      // Place parents (must happen before adding links to siblings)
+      // Place parents
       const placedParentIds: string[] = []
       if (parentIds.length >= 2) {
         placeNode(parentIds[0], centerX - PARTNER_GAP / 2, genY, graph, nodes)
@@ -165,9 +170,10 @@ function expandAncestorsByGeneration(
         addLink(nodes, parentIds[0], childId, 'parent-child')
         addLink(nodes, parentIds[1], childId, 'parent-child')
 
-        nextGenPersons.push(parentIds[0], parentIds[1])
+        // First parent keeps same direction, second parent gets flipped direction
+        nextGen.push({ personId: parentIds[0], dir: sibDir })
+        nextGen.push({ personId: parentIds[1], dir: -sibDir })
       } else {
-        // Single parent found — check if they have an unvisited partner
         const singleParent = graph.get(parentIds[0])
         const unvisitedPartner = singleParent?.partnerIds.find(id => !visited.has(id))
 
@@ -181,23 +187,23 @@ function expandAncestorsByGeneration(
           addLink(nodes, parentIds[0], unvisitedPartner, 'partner')
           addLink(nodes, parentIds[0], childId, 'parent-child')
 
-          // Add parent-child link from partner if they are also a parent
           const partnerNode = graph.get(unvisitedPartner)
           if (partnerNode?.childIds.includes(childId)) {
             addLink(nodes, unvisitedPartner, childId, 'parent-child')
           }
 
-          nextGenPersons.push(parentIds[0], unvisitedPartner)
+          nextGen.push({ personId: parentIds[0], dir: sibDir })
+          nextGen.push({ personId: unvisitedPartner, dir: -sibDir })
         } else {
           placeNode(parentIds[0], centerX, genY, graph, nodes)
           visited.add(parentIds[0])
           placedParentIds.push(parentIds[0])
           addLink(nodes, parentIds[0], childId, 'parent-child')
-          nextGenPersons.push(parentIds[0])
+          nextGen.push({ personId: parentIds[0], dir: sibDir })
         }
       }
 
-      // Now add parent-child links from parents to siblings (parents are placed now)
+      // Add parent-child links from parents to siblings
       for (const sibId of siblings) {
         for (const pid of placedParentIds) {
           const parentGraphNode = graph.get(pid)
@@ -208,7 +214,7 @@ function expandAncestorsByGeneration(
       }
     }
 
-    currentGenPersons = nextGenPersons
+    currentGen = nextGen
     generation++
   }
 }
@@ -275,6 +281,124 @@ function placeDescendants(
         addLink(nodes, personId, childId, 'parent-child')
         placedNew = true
       })
+    }
+  }
+}
+
+/**
+ * Spread siblings apart proportionally to their subtree widths.
+ * Bottom-up: calculate how wide each person's descendant tree is.
+ * Top-down: redistribute children's x-positions so wider subtrees get more space.
+ */
+function spreadBySubtreeWidth(
+  nodes: Map<string, LayoutNode>,
+  graph: FamilyGraph,
+) {
+  const nodeIds = Array.from(nodes.keys())
+  const leafWidth = CARD_WIDTH + CARD_MARGIN + PARTNER_GAP // space for a person + their partner
+
+  // Bottom-up: calculate subtree width for each placed node
+  const subtreeWidth = new Map<string, number>()
+
+  function getSubtreeWidth(personId: string): number {
+    if (subtreeWidth.has(personId)) return subtreeWidth.get(personId)!
+
+    const familyNode = graph.get(personId)
+    if (!familyNode) { subtreeWidth.set(personId, leafWidth); return leafWidth }
+
+    // Only count children that are actually placed in the layout
+    const placedChildren = familyNode.childIds.filter(id => nodes.has(id))
+    if (placedChildren.length === 0) {
+      subtreeWidth.set(personId, leafWidth)
+      return leafWidth
+    }
+
+    const childrenTotalWidth = placedChildren.reduce(
+      (sum, cid) => sum + getSubtreeWidth(cid), 0
+    ) + (placedChildren.length - 1) * CHILD_GAP
+
+    const width = Math.max(leafWidth, childrenTotalWidth)
+    subtreeWidth.set(personId, width)
+    return width
+  }
+
+  // Calculate all widths
+  for (const id of nodeIds) {
+    getSubtreeWidth(id)
+  }
+
+  // Top-down: for each parent with multiple placed children, redistribute x-positions
+  const processed = new Set<string>()
+
+  // Sort nodes by y (topmost first) so we process parents before children
+  const sortedNodes = Array.from(nodes.values()).sort((a, b) => a.y - b.y)
+
+  for (const parentNode of sortedNodes) {
+    if (processed.has(parentNode.personId)) continue
+    processed.add(parentNode.personId)
+
+    const familyNode = graph.get(parentNode.personId)
+    if (!familyNode) continue
+
+    const placedChildren = familyNode.childIds.filter(id => nodes.has(id))
+    if (placedChildren.length < 2) continue
+
+    // Sort children by current x
+    const childNodes = placedChildren
+      .map(id => ({ id, node: nodes.get(id)!, width: subtreeWidth.get(id)! }))
+      .sort((a, b) => a.node.x - b.node.x)
+
+    // Calculate total width needed
+    const totalWidth = childNodes.reduce((s, c) => s + c.width, 0)
+      + (childNodes.length - 1) * CHILD_GAP
+
+    // Center children around parent's x, distributed by subtree width
+    let x = parentNode.x - totalWidth / 2
+
+    for (const child of childNodes) {
+      const newX = x + child.width / 2
+      const dx = newX - child.node.x
+
+      // Shift this child and ALL their descendants
+      if (Math.abs(dx) > 1) {
+        shiftSubtree(child.id, dx, nodes, graph)
+      }
+
+      x += child.width + CHILD_GAP
+    }
+  }
+}
+
+const CHILD_GAP = 40
+
+/**
+ * Shift a person and all their placed descendants by dx.
+ */
+function shiftSubtree(
+  personId: string,
+  dx: number,
+  nodes: Map<string, LayoutNode>,
+  graph: FamilyGraph,
+) {
+  const node = nodes.get(personId)
+  if (!node) return
+  node.x += dx
+
+  // Also shift partner if they exist and are placed
+  const familyNode = graph.get(personId)
+  if (familyNode) {
+    for (const partnerId of familyNode.partnerIds) {
+      const partnerNode = nodes.get(partnerId)
+      if (partnerNode && Math.abs(partnerNode.y - node.y) < 1) {
+        partnerNode.x += dx
+      }
+    }
+
+    // Recursively shift children
+    for (const childId of familyNode.childIds) {
+      if (nodes.has(childId)) {
+        shiftSubtree(childId, dx, nodes, graph)
+      }
     }
   }
 }

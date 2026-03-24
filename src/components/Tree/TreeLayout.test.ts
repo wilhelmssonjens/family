@@ -44,14 +44,14 @@ const relationships: Relationship[] = [
 
 describe('computeTreeLayout', () => {
   it('returns a layout with positioned nodes', () => {
-    const layout = computeTreeLayout(persons, relationships, 'jens');
+    const { nodes: layout } = computeTreeLayout(persons, relationships, 'jens');
     expect(layout).toBeDefined();
     expect(Array.isArray(layout)).toBe(true);
     expect(layout.length).toBeGreaterThan(0);
   });
 
   it('places the center couple near origin', () => {
-    const layout = computeTreeLayout(persons, relationships, 'jens');
+    const { nodes: layout } = computeTreeLayout(persons, relationships, 'jens');
     const jensNode = layout.find((n) => n.personId === 'jens');
     const klaraNode = layout.find((n) => n.personId === 'klara');
     expect(jensNode).toBeDefined();
@@ -64,7 +64,7 @@ describe('computeTreeLayout', () => {
   });
 
   it('places Jens parents above Jens (negative y)', () => {
-    const layout = computeTreeLayout(persons, relationships, 'jens');
+    const { nodes: layout } = computeTreeLayout(persons, relationships, 'jens');
     const jensNode = layout.find((n) => n.personId === 'jens');
     const jensFatherNode = layout.find((n) => n.personId === 'jens-father');
     expect(jensNode).toBeDefined();
@@ -73,7 +73,7 @@ describe('computeTreeLayout', () => {
   });
 
   it('places Klara parents above Klara (negative y)', () => {
-    const layout = computeTreeLayout(persons, relationships, 'jens');
+    const { nodes: layout } = computeTreeLayout(persons, relationships, 'jens');
     const klaraNode = layout.find((n) => n.personId === 'klara');
     const klaraFatherNode = layout.find((n) => n.personId === 'klara-father');
     expect(klaraNode).toBeDefined();
@@ -82,7 +82,7 @@ describe('computeTreeLayout', () => {
   });
 
   it('places siblings on the same y-level with different x', () => {
-    const layout = computeTreeLayout(persons, relationships, 'jens');
+    const { nodes: layout } = computeTreeLayout(persons, relationships, 'jens');
     const jensNode = layout.find((n) => n.personId === 'jens');
     const siblingNode = layout.find((n) => n.personId === 'jens-sibling');
     expect(jensNode).toBeDefined();
@@ -92,7 +92,7 @@ describe('computeTreeLayout', () => {
   });
 
   it('centers parents above children row', () => {
-    const layout = computeTreeLayout(persons, relationships, 'jens');
+    const { nodes: layout } = computeTreeLayout(persons, relationships, 'jens');
     const jensNode = layout.find((n) => n.personId === 'jens')!;
     const siblingNode = layout.find((n) => n.personId === 'jens-sibling')!;
     const jensFatherNode = layout.find((n) => n.personId === 'jens-father')!;
@@ -103,7 +103,7 @@ describe('computeTreeLayout', () => {
   });
 
   it('includes all persons in the layout', () => {
-    const layout = computeTreeLayout(persons, relationships, 'jens');
+    const { nodes: layout } = computeTreeLayout(persons, relationships, 'jens');
     const layoutIds = layout.map((n) => n.personId).sort();
     const personIds = persons.map((p) => p.id).sort();
     expect(layoutIds).toEqual(personIds);
@@ -122,7 +122,7 @@ describe('computeTreeLayout', () => {
       { type: 'parent', from: 'tor', to: 'klara' },
       { type: 'partner', from: 'tor', to: 'lena', status: 'current' },
     ];
-    const layout = computeTreeLayout(p, r, 'jens');
+    const { nodes: layout } = computeTreeLayout(p, r, 'jens');
     const lenaNode = layout.find(n => n.personId === 'lena');
     const torNode = layout.find(n => n.personId === 'tor');
     expect(lenaNode).toBeDefined();
@@ -131,7 +131,7 @@ describe('computeTreeLayout', () => {
   });
 
   it('no cards overlap on the same row', () => {
-    const layout = computeTreeLayout(persons, relationships, 'jens');
+    const { nodes: layout } = computeTreeLayout(persons, relationships, 'jens');
     // Group by y
     const rows = new Map<number, typeof layout>();
     for (const node of layout) {
@@ -166,7 +166,7 @@ describe('computeTreeLayout', () => {
       // Only parent-b is parent of half-sibling (not parent-a)
       { type: 'parent', from: 'parent-b', to: 'half-sibling' },
     ];
-    const layout = computeTreeLayout(p, r, 'jens');
+    const { nodes: layout } = computeTreeLayout(p, r, 'jens');
     const siblingNode = layout.find(n => n.personId === 'half-sibling');
     const klaraNode = layout.find(n => n.personId === 'klara');
     expect(siblingNode).toBeDefined();
@@ -197,7 +197,7 @@ describe('computeTreeLayout', () => {
       { type: 'parent', from: 'dad', to: 'sib3' },
       { type: 'parent', from: 'mom', to: 'sib3' },
     ];
-    const layout = computeTreeLayout(p, r, 'jens');
+    const { nodes: layout } = computeTreeLayout(p, r, 'jens');
     const dadNode = layout.find(n => n.personId === 'dad')!;
     const momNode = layout.find(n => n.personId === 'mom')!;
     const childNodes = ['jens', 'sib1', 'sib2', 'sib3']
@@ -213,7 +213,7 @@ describe('computeTreeLayout', () => {
   it('adds extra spacing between different family groups on same row', () => {
     // Jens's parents (jens-father, jens-mother) and Klara's parents (klara-father, klara-mother)
     // are on the same y-row but are separate family groups
-    const layout = computeTreeLayout(persons, relationships, 'jens');
+    const { nodes: layout } = computeTreeLayout(persons, relationships, 'jens');
     const jfNode = layout.find(n => n.personId === 'jens-father')!;
     const jmNode = layout.find(n => n.personId === 'jens-mother')!;
     const kfNode = layout.find(n => n.personId === 'klara-father')!;
@@ -261,7 +261,7 @@ describe('computeTreeLayout', () => {
       { type: 'parent', from: 'kf', to: 'ks2' },
       { type: 'parent', from: 'km', to: 'ks2' },
     ];
-    const layout = computeTreeLayout(p, r, 'jens');
+    const { nodes: layout } = computeTreeLayout(p, r, 'jens');
 
     // Verify all placed
     expect(layout.length).toBe(p.length);
@@ -300,7 +300,7 @@ describe('computeTreeLayout', () => {
       { type: 'partner', from: 'dad', to: 'mom', status: 'current' },
       { type: 'parent', from: 'sibling', to: 'nephew' },
     ];
-    const layout = computeTreeLayout(p, r, 'center');
+    const { nodes: layout } = computeTreeLayout(p, r, 'center');
     const nephewNode = layout.find(n => n.personId === 'nephew');
     const siblingNode = layout.find(n => n.personId === 'sibling');
     expect(nephewNode).toBeDefined();
@@ -309,7 +309,7 @@ describe('computeTreeLayout', () => {
   });
 
   it('creates parent-child links from both parents to all siblings', () => {
-    const layout = computeTreeLayout(persons, relationships, 'jens');
+    const { nodes: layout } = computeTreeLayout(persons, relationships, 'jens');
     const fatherNode = layout.find(n => n.personId === 'jens-father')!;
     const motherNode = layout.find(n => n.personId === 'jens-mother')!;
     const siblingLinks = fatherNode.links.filter(l => l.targetId === 'jens-sibling' && l.type === 'parent-child');

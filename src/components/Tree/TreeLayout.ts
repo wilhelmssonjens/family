@@ -1,6 +1,6 @@
-import { buildFamilyGraph, buildFamilyUnits, type FamilyUnit } from '../../utils/buildTree'
+import { buildFamilyUnits, type FamilyUnit } from '../../utils/buildTree'
 import { CARD_WIDTH } from '../PersonCard/PersonCardMini'
-import type { Person, Relationship } from '../../types'
+import type { Person, Relationship, PositionedFamilyConnector } from '../../types'
 
 export interface LayoutLink {
   targetId: string
@@ -13,6 +13,11 @@ export interface LayoutNode {
   x: number
   y: number
   links: LayoutLink[]
+}
+
+export interface TreeLayoutResult {
+  nodes: LayoutNode[]
+  families: PositionedFamilyConnector[]
 }
 
 // --- Constants ---
@@ -37,6 +42,23 @@ function addLink(
   }
 }
 
+/**
+ * Find the FamilyUnit where centerId is a parent.
+ * Returns the partner ID (the other parent in that unit), or null.
+ */
+function pickCenterFamily(
+  centerId: string,
+  familyUnits: FamilyUnit[],
+): string | null {
+  for (const unit of familyUnits) {
+    if (unit.parentIds.includes(centerId)) {
+      const partner = unit.parentIds.find(id => id !== centerId)
+      if (partner) return partner
+    }
+  }
+  return null
+}
+
 // --- Placement pass ---
 
 /**
@@ -54,6 +76,7 @@ interface PlacementContext {
   nodes: Map<string, LayoutNode>
   placed: Set<string>
   placedFamilies: Set<string>
+  familyConnectors: PositionedFamilyConnector[]
 }
 
 /**
@@ -137,31 +160,9 @@ function placeNode(
 }
 
 /**
- * Place a person and recursively place all families where they are a parent
- * (i.e. their descendants). The person is placed at centerX, and each of
- * their families' children are placed below.
- */
-function placePerson(
-  personId: string,
-  centerX: number,
-  generation: number,
-  ctx: PlacementContext,
-): void {
-  if (ctx.placed.has(personId)) return
-
-  placeNode(personId, centerX, generation * GENERATION_GAP, ctx)
-
-  // Place families where this person is a parent
-  const families = ctx.unitsAsParent.get(personId) ?? []
-  for (const family of families) {
-    if (ctx.placedFamilies.has(family.id)) continue
-    placeFamily(family, centerX, generation, ctx)
-  }
-}
-
-/**
  * Place a FamilyUnit: parents centered at centerX on generation row,
  * children distributed below based on measured widths.
+ * Recursively places each child's own families.
  */
 function placeFamily(
   family: FamilyUnit,
@@ -183,7 +184,20 @@ function placeFamily(
     placeNode(family.parentIds[0], centerX, y, ctx)
   }
 
-  if (family.childIds.length === 0) return
+  // Build family connector for this family
+  const connector: PositionedFamilyConnector = {
+    familyId: family.id,
+    parentIds: family.parentIds.filter(id => ctx.placed.has(id)),
+    childIds: [],
+    centerX,
+    parentY: y,
+    childY: (generation + 1) * GENERATION_GAP,
+  }
+
+  if (family.childIds.length === 0) {
+    ctx.familyConnectors.push(connector)
+    return
+  }
 
   // Place children below, distributed by measured widths
   const childGeneration = generation + 1
@@ -197,16 +211,27 @@ function placeFamily(
     const width = childWidths[i]
     const childCenterX = cursor + width / 2
 
-    // Place child and their descendants recursively
-    placePerson(childId, childCenterX, childGeneration, ctx)
+    // Place child node
+    placeNode(childId, childCenterX, childGeneration * GENERATION_GAP, ctx)
 
     // Add parent-child links
     for (const parentId of family.parentIds) {
       addLink(ctx.nodes, parentId, childId, 'parent-child')
     }
 
+    // Recursively place the child's own families
+    const childFamilies = ctx.unitsAsParent.get(childId) ?? []
+    for (const childFamily of childFamilies) {
+      if (ctx.placedFamilies.has(childFamily.id)) continue
+      placeFamily(childFamily, childCenterX, childGeneration, ctx)
+    }
+
     cursor += width + CHILD_GAP
   }
+
+  // Update connector with placed children
+  connector.childIds = family.childIds.filter(id => ctx.placed.has(id))
+  ctx.familyConnectors.push(connector)
 }
 
 /**
@@ -269,11 +294,18 @@ function placeAncestors(
     }
   }
 
-  // Actually place the sibling nodes
+  // Actually place the sibling nodes and their descendant families
   for (let i = 0; i < birthFamily.childIds.length; i++) {
     const childId = birthFamily.childIds[i]
     if (childId !== personId) {
-      placePerson(childId, placedChildXs[i], generation, ctx)
+      placeNode(childId, placedChildXs[i], generation * GENERATION_GAP, ctx)
+
+      // Recursively place the sibling's own families (descendants)
+      const siblingFamilies = ctx.unitsAsParent.get(childId) ?? []
+      for (const sibFamily of siblingFamilies) {
+        if (ctx.placedFamilies.has(sibFamily.id)) continue
+        placeFamily(sibFamily, placedChildXs[i], generation, ctx)
+      }
     }
   }
 
@@ -309,6 +341,28 @@ function placeAncestors(
     }
   }
 
+  // Build family connector for this ancestor family
+  ctx.familyConnectors.push({
+    familyId: birthFamily.id,
+    parentIds: birthFamily.parentIds.filter(id => ctx.placed.has(id)),
+    childIds: birthFamily.childIds.filter(id => ctx.placed.has(id)),
+    centerX: familyCenterX,
+    parentY: parentGen * GENERATION_GAP,
+    childY: generation * GENERATION_GAP,
+  })
+
+  // Place any other families where these parents are parents
+  // (catches partner-only families and half-sibling families)
+  for (const parentId of birthFamily.parentIds) {
+    const parentNode = ctx.nodes.get(parentId)
+    if (!parentNode) continue
+    const otherFamilies = ctx.unitsAsParent.get(parentId) ?? []
+    for (const otherFamily of otherFamilies) {
+      if (ctx.placedFamilies.has(otherFamily.id)) continue
+      placeFamily(otherFamily, parentNode.x, parentGen, ctx)
+    }
+  }
+
   // Recurse: each parent's ancestors expand in OPPOSITE directions.
   // First parent keeps `direction`, second gets `-direction`.
   // This ensures Per's family fans one way and Laila's family the other.
@@ -323,53 +377,6 @@ function placeAncestors(
   }
 }
 
-/**
- * Place any remaining unplaced persons. This catches partners who were not
- * placed through the normal traversal (e.g. a partner-only couple with no children
- * where the partner is not an ancestor of the center couple).
- */
-function placeRemaining(ctx: PlacementContext): void {
-  for (const [personId] of ctx.personMap) {
-    if (ctx.placed.has(personId)) continue
-
-    // Try to find a placed partner to place beside
-    const families = ctx.unitsAsParent.get(personId) ?? []
-    let placed = false
-    for (const family of families) {
-      const placedPartner = family.parentIds.find(id => id !== personId && ctx.placed.has(id))
-      if (placedPartner) {
-        const partnerNode = ctx.nodes.get(placedPartner)!
-        placeNode(personId, partnerNode.x + PARTNER_GAP, partnerNode.y, ctx)
-        addLink(ctx.nodes, placedPartner, personId, 'partner')
-        placed = true
-        break
-      }
-    }
-
-    // Also check partner-only families where this person is a parent
-    if (!placed) {
-      // Check all family units for partner relationships
-      for (const [, family] of ctx.familyById) {
-        if (!family.parentIds.includes(personId)) continue
-        const placedPartner = family.parentIds.find(id => id !== personId && ctx.placed.has(id))
-        if (placedPartner) {
-          const partnerNode = ctx.nodes.get(placedPartner)!
-          placeNode(personId, partnerNode.x + PARTNER_GAP, partnerNode.y, ctx)
-          addLink(ctx.nodes, placedPartner, personId, 'partner')
-          placed = true
-          break
-        }
-      }
-    }
-
-    // Last resort: place at origin
-    if (!placed) {
-      const gen = ctx.generations.get(personId) ?? 0
-      placeNode(personId, 0, gen * GENERATION_GAP, ctx)
-    }
-  }
-}
-
 // --- Main layout function ---
 
 /**
@@ -379,23 +386,24 @@ function placeRemaining(ctx: PlacementContext): void {
  * 1. Build FamilyUnits from persons + relationships
  * 2. Assign generations (BFS from center)
  * 3. Measure all family widths (bottom-up)
- * 4. Place center couple at origin
- * 5. Place center couple's children below
- * 6. Place center person's ancestors (LEFT side, x < 0)
- * 7. Place center partner's ancestors (RIGHT side, x > 0)
- * 8. Place any remaining unplaced persons
+ * 4. Find center partner via pickCenterFamily
+ * 5. Place center couple at origin
+ * 6. Place center couple's children below (via placeFamily)
+ * 7. Place center person's ancestors (LEFT side, x < 0)
+ * 8. Place center partner's ancestors (RIGHT side, x > 0)
+ * 9. Warn about any unplaced persons
  */
 export function computeTreeLayout(
   persons: Person[],
   relationships: Relationship[],
   centerId: string,
-): LayoutNode[] {
-  if (persons.length === 0) return []
+): TreeLayoutResult {
+  if (persons.length === 0) return { nodes: [], families: [] }
 
   const personMap = new Map<string, Person>()
   for (const p of persons) personMap.set(p.id, p)
 
-  if (!personMap.has(centerId)) return []
+  if (!personMap.has(centerId)) return { nodes: [], families: [] }
 
   // 1. Build family units and lookups
   const familyUnits = buildFamilyUnits(persons, relationships)
@@ -437,12 +445,11 @@ export function computeTreeLayout(
     nodes: new Map(),
     placed: new Set(),
     placedFamilies: new Set(),
+    familyConnectors: [],
   }
 
-  // 4. Find center partner
-  const graph = buildFamilyGraph(persons, relationships)
-  const centerGraphNode = graph.get(centerId)
-  const centerPartnerId = centerGraphNode?.partnerIds[0] ?? null
+  // 4. Find center partner via FamilyUnit lookup (Step A)
+  const centerPartnerId = pickCenterFamily(centerId, familyUnits)
 
   // 5. Place center couple
   placeNode(centerId, -PARTNER_GAP / 2, 0, ctx)
@@ -482,10 +489,17 @@ export function computeTreeLayout(
     }
   }
 
-  // 9. Place remaining unplaced persons
-  placeRemaining(ctx)
+  // 9. Warn about unplaced persons (Step C: no fallback positions)
+  for (const [personId] of personMap) {
+    if (!ctx.placed.has(personId)) {
+      console.warn(`[TreeLayout] Person "${personId}" was not placed by family traversal.`)
+    }
+  }
 
-  return Array.from(ctx.nodes.values())
+  return {
+    nodes: Array.from(ctx.nodes.values()),
+    families: ctx.familyConnectors,
+  }
 }
 
 // --- Measure pass ---

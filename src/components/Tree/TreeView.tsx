@@ -20,7 +20,7 @@ export function TreeView({ persons, relationships, centerId, highlightPersonId, 
   const [transform, setTransform] = useState({ x: 0, y: 0, k: 1 })
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 })
 
-  const nodes = computeTreeLayout(persons, relationships, centerId)
+  const { nodes, families } = computeTreeLayout(persons, relationships, centerId)
 
   useEffect(() => {
     if (!svgRef.current) return
@@ -57,35 +57,6 @@ export function TreeView({ persons, relationships, centerId, highlightPersonId, 
     }
   }, [])
 
-  // Build partner links and bracket groups for parent-child connections
-  const partnerLinks: Array<{ x1: number; y1: number; x2: number; y2: number }> = []
-  const childToParents = new Map<string, typeof nodes>()
-
-  for (const node of nodes) {
-    for (const link of node.links) {
-      const target = nodes.find(n => n.personId === link.targetId)
-      if (!target) continue
-
-      if (link.type === 'partner') {
-        partnerLinks.push({ x1: node.x, y1: node.y, x2: target.x, y2: target.y })
-      } else {
-        const parents = childToParents.get(link.targetId) ?? []
-        parents.push(node)
-        childToParents.set(link.targetId, parents)
-      }
-    }
-  }
-
-  // Group children by parent set for bracket rendering
-  const bracketMap = new Map<string, { parentIds: string[]; childIds: string[] }>()
-  for (const [childId, parents] of childToParents) {
-    const key = parents.map(p => p.personId).sort().join('|')
-    const group = bracketMap.get(key) ?? { parentIds: parents.map(p => p.personId), childIds: [] }
-    group.childIds.push(childId)
-    bracketMap.set(key, group)
-  }
-  const brackets = Array.from(bracketMap.values())
-
   return (
     <div className="relative w-full h-full">
       <svg ref={svgRef} className="w-full h-full bg-bg-primary" style={{ touchAction: 'none' }}>
@@ -95,56 +66,67 @@ export function TreeView({ persons, relationships, centerId, highlightPersonId, 
           </filter>
         </defs>
         <g ref={gRef} transform={`translate(${transform.x}, ${transform.y}) scale(${transform.k})`}>
-          {/* Partner links (horizontal with 90-degree elbows) */}
-          {partnerLinks.map((link, i) => {
-            const midX = (link.x1 + link.x2) / 2
-            return (
-              <path
-                key={`partner-${i}`}
-                d={`M ${link.x1},${link.y1} H ${midX} V ${link.y2} H ${link.x2}`}
-                stroke="#c4a77d"
-                strokeWidth={2}
-                strokeDasharray="6,4"
-                fill="none"
-              />
-            )
-          })}
-
-          {/* Parent-child bracket lines (orthogonal 90-degree connectors) */}
-          {brackets.map((group, i) => {
-            const parentNodes = group.parentIds
+          {/* Family connectors: partner lines + parent-child brackets */}
+          {families.map((fam, i) => {
+            const parentPositions = fam.parentIds
               .map(id => nodes.find(n => n.personId === id))
               .filter((n): n is typeof nodes[0] => n !== undefined)
-            const childNodes = group.childIds
+            const childPositions = fam.childIds
               .map(id => nodes.find(n => n.personId === id))
               .filter((n): n is typeof nodes[0] => n !== undefined)
-            if (parentNodes.length === 0 || childNodes.length === 0) return null
 
-            const parentCenterX = parentNodes.reduce((sum, n) => sum + n.x, 0) / parentNodes.length
-            const parentCenterY = parentNodes.reduce((sum, n) => sum + n.y, 0) / parentNodes.length
-            const avgChildY = childNodes.reduce((sum, n) => sum + n.y, 0) / childNodes.length
-            const junctionY = parentCenterY + 0.4 * (avgChildY - parentCenterY)
+            if (parentPositions.length === 0) return null
 
-            if (childNodes.length === 1) {
-              const child = childNodes[0]
-              return (
+            // Partner line (dashed, between two parents)
+            let partnerLine = null
+            if (parentPositions.length >= 2) {
+              const p0 = parentPositions[0]
+              const p1 = parentPositions[1]
+              const midX = (p0.x + p1.x) / 2
+              partnerLine = (
                 <path
-                  key={`bracket-${i}`}
-                  d={`M ${parentCenterX},${parentCenterY} V ${junctionY} H ${child.x} V ${child.y}`}
-                  stroke="#aaa" strokeWidth={1.5} fill="none"
+                  d={`M ${p0.x},${p0.y} H ${midX} V ${p1.y} H ${p1.x}`}
+                  stroke="#c4a77d"
+                  strokeWidth={2}
+                  strokeDasharray="6,4"
+                  fill="none"
                 />
               )
             }
 
-            const childXs = childNodes.map(n => n.x)
+            // No children — just render partner line
+            if (childPositions.length === 0) {
+              return <g key={`fam-${i}`}>{partnerLine}</g>
+            }
+
+            const parentCenterX = fam.centerX
+            const junctionY = fam.parentY + 0.4 * (fam.childY - fam.parentY)
+
+            // Single child: direct path from parent center to child
+            if (childPositions.length === 1) {
+              const child = childPositions[0]
+              return (
+                <g key={`fam-${i}`}>
+                  {partnerLine}
+                  <path
+                    d={`M ${parentCenterX},${fam.parentY} V ${junctionY} H ${child.x} V ${child.y}`}
+                    stroke="#aaa" strokeWidth={1.5} fill="none"
+                  />
+                </g>
+              )
+            }
+
+            // Multiple children: bracket
+            const childXs = childPositions.map(n => n.x)
             const minChildX = Math.min(...childXs)
             const maxChildX = Math.max(...childXs)
 
             return (
-              <g key={`bracket-${i}`}>
-                <line x1={parentCenterX} y1={parentCenterY} x2={parentCenterX} y2={junctionY} stroke="#aaa" strokeWidth={1.5} />
+              <g key={`fam-${i}`}>
+                {partnerLine}
+                <line x1={parentCenterX} y1={fam.parentY} x2={parentCenterX} y2={junctionY} stroke="#aaa" strokeWidth={1.5} />
                 <line x1={minChildX} y1={junctionY} x2={maxChildX} y2={junctionY} stroke="#aaa" strokeWidth={1.5} />
-                {childNodes.map((child, j) => (
+                {childPositions.map((child, j) => (
                   <line key={j} x1={child.x} y1={junctionY} x2={child.x} y2={child.y} stroke="#aaa" strokeWidth={1.5} />
                 ))}
               </g>

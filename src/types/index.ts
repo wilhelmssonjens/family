@@ -41,3 +41,12 @@ export interface FamilyData {
   persons: Person[]
   relationships: Relationship[]
 }
+
+export interface PositionedFamilyConnector {
+  familyId: string
+  parentIds: string[]
+  childIds: string[]
+  centerX: number
+  parentY: number
+  childY: number
+}

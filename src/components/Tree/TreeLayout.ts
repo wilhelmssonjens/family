@@ -170,9 +170,9 @@ function expandAncestorsByGeneration(
         addLink(nodes, parentIds[0], childId, 'parent-child')
         addLink(nodes, parentIds[1], childId, 'parent-child')
 
-        // First parent keeps same direction, second parent gets flipped direction
+        // Both parents keep same direction — stay on the same side of the tree
         nextGen.push({ personId: parentIds[0], dir: sibDir })
-        nextGen.push({ personId: parentIds[1], dir: -sibDir })
+        nextGen.push({ personId: parentIds[1], dir: sibDir })
       } else {
         const singleParent = graph.get(parentIds[0])
         const unvisitedPartner = singleParent?.partnerIds.find(id => !visited.has(id))
@@ -193,7 +193,7 @@ function expandAncestorsByGeneration(
           }
 
           nextGen.push({ personId: parentIds[0], dir: sibDir })
-          nextGen.push({ personId: unvisitedPartner, dir: -sibDir })
+          nextGen.push({ personId: unvisitedPartner, dir: sibDir })
         } else {
           placeNode(parentIds[0], centerX, genY, graph, nodes)
           visited.add(parentIds[0])

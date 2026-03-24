@@ -21,8 +21,8 @@ const GENERATION_GAP = 250
 const PARTNER_GAP = 160
 const CARD_MARGIN = 20
 const CHILD_GAP = 60
-const CARD_SLOT = CARD_WIDTH + CARD_MARGIN     // 160px — space for one card
-const COUPLE_SLOT = PARTNER_GAP + CARD_WIDTH   // 300px — space for a couple
+const CARD_SLOT = CARD_WIDTH + CARD_MARGIN     // 160px
+const COUPLE_SLOT = PARTNER_GAP + CARD_WIDTH   // 300px
 
 // --- Phase 1: Build tree structure with calculated widths ---
 
@@ -30,14 +30,14 @@ interface DescendantNode {
   personId: string
   partnerId: string | null
   children: DescendantNode[]
-  width: number  // horizontal space needed for this person + all descendants
+  width: number
 }
 
 interface Branch {
-  coupleIds: string[]           // parent couple at this level
-  backboneChildId: string       // the child in the direct line to center
-  siblings: DescendantNode[]    // other children (with descendant trees)
-  parentBranches: Branch[]      // ancestor branches above (one per parent)
+  coupleIds: string[]
+  backboneChildId: string
+  siblings: DescendantNode[]
+  parentBranches: Branch[]   // one per parent in coupleIds (index-aligned)
 }
 
 function buildDescendantTree(
@@ -54,7 +54,6 @@ function buildDescendantTree(
 
   const children = childIds.map(cid => buildDescendantTree(graph, cid, visited))
 
-  // Width: bottom-up
   const selfWidth = partnerId ? COUPLE_SLOT : CARD_SLOT
   const childrenWidth = children.length > 0
     ? children.reduce((s, c) => s + c.width, 0) + (children.length - 1) * CHILD_GAP
@@ -75,7 +74,7 @@ function buildBranch(
   const parentIds = node.parentIds.filter(id => !visited.has(id))
   if (parentIds.length === 0) return null
 
-  // Resolve the parent couple (find partner of first parent)
+  // Resolve parent couple
   const coupleIds = [...parentIds]
   for (const pid of parentIds) {
     const parentNode = graph.get(pid)
@@ -89,7 +88,7 @@ function buildBranch(
   }
   coupleIds.forEach(id => visited.add(id))
 
-  // Find siblings (other children of this couple, not the backbone child)
+  // Find siblings
   const allChildIds = new Set<string>()
   for (const pid of coupleIds) {
     const pNode = graph.get(pid)
@@ -102,15 +101,13 @@ function buildBranch(
 
   const siblings = siblingIds.map(sid => buildDescendantTree(graph, sid, visited))
 
-  // Recurse upward for each parent
-  const parentBranches = coupleIds
-    .map(pid => buildBranch(graph, pid, visited))
-    .filter((b): b is Branch => b !== null)
+  // Recurse upward — one branch per parent in coupleIds (index-aligned)
+  const parentBranches = coupleIds.map(pid => buildBranch(graph, pid, visited))
 
   return { coupleIds, backboneChildId: personId, siblings, parentBranches }
 }
 
-// --- Phase 2: Place nodes (top-down, recursive) ---
+// --- Phase 2: Place nodes ---
 
 export function computeTreeLayout(
   persons: Person[],
@@ -118,152 +115,150 @@ export function computeTreeLayout(
   centerId: string,
 ): LayoutNode[] {
   const graph = buildFamilyGraph(persons, relationships)
-  const nodes = new Map<string, LayoutNode>()
   const visited = new Set<string>()
 
   const centerNode = graph.get(centerId)
   if (!centerNode) return []
-
   const centerPartnerId = centerNode.partnerIds[0]
 
-  // Mark center couple as visited
   visited.add(centerId)
   if (centerPartnerId) visited.add(centerPartnerId)
 
   // Build branches
   const leftBranch = buildBranch(graph, centerId, visited)
-  const rightBranch = centerPartnerId
-    ? buildBranch(graph, centerPartnerId, visited)
-    : null
+  const rightBranch = centerPartnerId ? buildBranch(graph, centerPartnerId, visited) : null
 
-  // Calculate center gap: wide enough so branches don't overlap
-  // Each branch's parents can extend ~PARTNER_GAP/2 inward from the backbone
-  // With multiple generations, this compounds. Use a safe minimum.
-  const branchInwardExtension = PARTNER_GAP / 2 + CARD_MARGIN
-  const centerGap = Math.max(PARTNER_GAP, branchInwardExtension * 2 + CARD_SLOT)
+  // Place each side independently (at x=0, will shift later)
+  const leftNodes = new Map<string, LayoutNode>()
+  emit(leftNodes, centerId, 0, 0, graph)
+  if (leftBranch) {
+    placeBranch(leftBranch, 0, 0, -1, leftNodes, graph)
+  }
 
-  // Place center couple
-  emit(nodes, centerId, -centerGap / 2, 0, graph)
+  const rightNodes = new Map<string, LayoutNode>()
   if (centerPartnerId) {
-    emit(nodes, centerPartnerId, centerGap / 2, 0, graph)
-    addLink(nodes, centerId, centerPartnerId, 'partner')
-  }
-
-  // Place center couple's children (if any, below center)
-  const centerChildIds = new Set<string>()
-  for (const pid of [centerId, centerPartnerId].filter(Boolean) as string[]) {
-    const n = graph.get(pid)
-    if (n) n.childIds.forEach(c => { if (!visited.has(c)) centerChildIds.add(c) })
-  }
-  if (centerChildIds.size > 0) {
-    const centerChildren = Array.from(centerChildIds).map(cid => {
-      visited.add(cid)
-      return buildDescendantTree(graph, cid, visited)
-    })
-    const totalWidth = centerChildren.reduce((s, c) => s + c.width, 0)
-      + (centerChildren.length - 1) * CHILD_GAP
-    let x = -totalWidth / 2
-    for (const child of centerChildren) {
-      const cx = x + child.width / 2
-      placeDescendantTree(child, cx, GENERATION_GAP, nodes, graph)
-      addLink(nodes, centerId, child.personId, 'parent-child')
-      x += child.width + CHILD_GAP
+    emit(rightNodes, centerPartnerId, 0, 0, graph)
+    if (rightBranch) {
+      placeBranch(rightBranch, 0, 0, +1, rightNodes, graph)
     }
   }
 
-  // Place left branch (Jens side — direction -1)
-  if (leftBranch) {
-    placeBranch(leftBranch, -centerGap / 2, 0, -1, nodes, graph)
+  // Place center couple's children (if any)
+  const centerChildIds: string[] = []
+  for (const pid of [centerId, centerPartnerId].filter(Boolean) as string[]) {
+    const n = graph.get(pid)
+    if (n) n.childIds.forEach(c => { if (!visited.has(c)) centerChildIds.push(c) })
   }
 
-  // Place right branch (Klara side — direction +1)
-  if (rightBranch) {
-    placeBranch(rightBranch, centerGap / 2, 0, +1, nodes, graph)
+  // Measure each side's extent toward center
+  const leftMaxX = Math.max(0, ...Array.from(leftNodes.values()).map(n => n.x))
+  const rightMinX = Math.min(0, ...Array.from(rightNodes.values()).map(n => n.x))
+
+  // Calculate shifts so the two sides don't overlap
+  const minSeparation = CARD_SLOT + CHILD_GAP // 220px between closest cards of the two sides
+  const leftShift = -(leftMaxX + minSeparation / 2)
+  const rightShift = -rightMinX + minSeparation / 2
+
+  // Apply shifts and merge into final node set
+  const nodes = new Map<string, LayoutNode>()
+
+  for (const [id, node] of leftNodes) {
+    node.x += leftShift
+    nodes.set(id, node)
+  }
+
+  for (const [id, node] of rightNodes) {
+    node.x += rightShift
+    nodes.set(id, node)
+  }
+
+  // Add partner link between center couple
+  if (centerPartnerId) {
+    addLink(nodes, centerId, centerPartnerId, 'partner')
+  }
+
+  // Place center children (below center, centered between the two sides)
+  if (centerChildIds.length > 0) {
+    const centerX = 0 // midpoint
+    const childTrees = centerChildIds.map(cid => {
+      visited.add(cid)
+      return buildDescendantTree(graph, cid, visited)
+    })
+    const totalWidth = childTrees.reduce((s, c) => s + c.width, 0)
+      + (childTrees.length - 1) * CHILD_GAP
+    let cx = centerX - totalWidth / 2
+    for (const child of childTrees) {
+      const childCx = cx + child.width / 2
+      placeDescendantTree(child, childCx, GENERATION_GAP, nodes, graph)
+      addLink(nodes, centerId, child.personId, 'parent-child')
+      cx += child.width + CHILD_GAP
+    }
   }
 
   return Array.from(nodes.values())
 }
 
+/**
+ * Place a branch: siblings at backboneY spreading in direction,
+ * couple above centered, then each parent recurses with OPPOSITE
+ * directions so their families diverge naturally.
+ */
 function placeBranch(
   branch: Branch,
   backboneX: number,
   backboneY: number,
-  direction: number, // -1 = left, +1 = right
+  direction: number,
   nodes: Map<string, LayoutNode>,
   graph: FamilyGraph,
 ): void {
-  // 1. Place siblings at the same y as the backbone, spreading in direction
+  // 1. Place siblings at backboneY, spreading in direction
   let x = backboneX
-  const siblingPositions: { personId: string; x: number }[] = []
+  const sibXs: number[] = []
 
   for (const sib of branch.siblings) {
     x += direction * (CHILD_GAP + sib.width / 2)
-    siblingPositions.push({ personId: sib.personId, x })
-
-    // Place this sibling and their descendants
+    sibXs.push(x)
     placeDescendantTree(sib, x, backboneY, nodes, graph)
     x += direction * sib.width / 2
   }
 
-  // 2. Place parent couple above, centered over backbone + siblings
-  const allChildrenX = [backboneX, ...siblingPositions.map(s => s.x)]
-  const minX = Math.min(...allChildrenX)
-  const maxX = Math.max(...allChildrenX)
-  const coupleCenter = (minX + maxX) / 2
+  // 2. Place couple above, centered over backbone + siblings
+  const allChildX = [backboneX, ...sibXs]
+  const coupleCenter = (Math.min(...allChildX) + Math.max(...allChildX)) / 2
   const parentY = backboneY - GENERATION_GAP
 
-  // Dynamic couple gap: if both parents have ancestor branches with siblings,
-  // they need enough space between them so their respective families don't overlap.
-  let effectiveGap = PARTNER_GAP
-  if (branch.coupleIds.length >= 2 && branch.parentBranches.length === 2) {
-    const pb0SibWidth = branch.parentBranches[0].siblings.reduce(
-      (s, sib) => s + sib.width + CHILD_GAP, CARD_SLOT
-    )
-    const pb1SibWidth = branch.parentBranches[1].siblings.reduce(
-      (s, sib) => s + sib.width + CHILD_GAP, CARD_SLOT
-    )
-    effectiveGap = Math.max(PARTNER_GAP, (pb0SibWidth + pb1SibWidth) / 2 + CHILD_GAP)
-  }
-
   if (branch.coupleIds.length >= 2) {
-    emit(nodes, branch.coupleIds[0], coupleCenter - effectiveGap / 2, parentY, graph)
-    emit(nodes, branch.coupleIds[1], coupleCenter + effectiveGap / 2, parentY, graph)
+    emit(nodes, branch.coupleIds[0], coupleCenter - PARTNER_GAP / 2, parentY, graph)
+    emit(nodes, branch.coupleIds[1], coupleCenter + PARTNER_GAP / 2, parentY, graph)
     addLink(nodes, branch.coupleIds[0], branch.coupleIds[1], 'partner')
   } else {
     emit(nodes, branch.coupleIds[0], coupleCenter, parentY, graph)
   }
 
-  // 3. Add parent-child links
+  // 3. Parent-child links
   for (const parentId of branch.coupleIds) {
-    const parentFamilyNode = graph.get(parentId)
-    if (!parentFamilyNode) continue
-
-    if (parentFamilyNode.childIds.includes(branch.backboneChildId)) {
+    const fn = graph.get(parentId)
+    if (!fn) continue
+    if (fn.childIds.includes(branch.backboneChildId)) {
       addLink(nodes, parentId, branch.backboneChildId, 'parent-child')
     }
-
     for (const sib of branch.siblings) {
-      if (parentFamilyNode.childIds.includes(sib.personId)) {
+      if (fn.childIds.includes(sib.personId)) {
         addLink(nodes, parentId, sib.personId, 'parent-child')
       }
     }
   }
 
-  // 4. Recurse for ancestor branches above.
-  // If two parent branches: they go in OPPOSITE directions from the couple.
-  // First parent's family spreads in `direction`, second in `-direction`.
-  if (branch.parentBranches.length === 2) {
-    const pb0Node = nodes.get(branch.parentBranches[0].backboneChildId)
-    const pb1Node = nodes.get(branch.parentBranches[1].backboneChildId)
-    if (pb0Node) placeBranch(branch.parentBranches[0], pb0Node.x, parentY, direction, nodes, graph)
-    if (pb1Node) placeBranch(branch.parentBranches[1], pb1Node.x, parentY, -direction, nodes, graph)
-  } else {
-    for (const parentBranch of branch.parentBranches) {
-      const parentNode = nodes.get(parentBranch.backboneChildId)
-      if (parentNode) {
-        placeBranch(parentBranch, parentNode.x, parentY, direction, nodes, graph)
-      }
-    }
+  // 4. Recurse: each parent's ancestors spread in alternating directions.
+  //    Parent at index 0 keeps `direction`, parent at index 1 gets `-direction`.
+  //    This ensures Per's family fans one way and Laila's family fans the other.
+  for (let i = 0; i < branch.coupleIds.length; i++) {
+    const pb = branch.parentBranches[i]
+    if (!pb) continue
+    const parentNode = nodes.get(pb.backboneChildId)
+    if (!parentNode) continue
+    const parentDir = i === 0 ? direction : -direction
+    placeBranch(pb, parentNode.x, parentY, parentDir, nodes, graph)
   }
 }
 
@@ -274,7 +269,6 @@ function placeDescendantTree(
   nodes: Map<string, LayoutNode>,
   graph: FamilyGraph,
 ): void {
-  // Place person (and partner if any)
   if (tree.partnerId) {
     emit(nodes, tree.personId, x - PARTNER_GAP / 2, y, graph)
     emit(nodes, tree.partnerId, x + PARTNER_GAP / 2, y, graph)
@@ -283,7 +277,6 @@ function placeDescendantTree(
     emit(nodes, tree.personId, x, y, graph)
   }
 
-  // Place children below, centered under the couple/person
   if (tree.children.length === 0) return
 
   const childY = y + GENERATION_GAP
@@ -295,11 +288,10 @@ function placeDescendantTree(
     const cx = childX + child.width / 2
     placeDescendantTree(child, cx, childY, nodes, graph)
 
-    // Parent-child links
     addLink(nodes, tree.personId, child.personId, 'parent-child')
     if (tree.partnerId) {
-      const partnerFamilyNode = graph.get(tree.partnerId)
-      if (partnerFamilyNode?.childIds.includes(child.personId)) {
+      const pfn = graph.get(tree.partnerId)
+      if (pfn?.childIds.includes(child.personId)) {
         addLink(nodes, tree.partnerId, child.personId, 'parent-child')
       }
     }
@@ -317,7 +309,7 @@ function emit(
   y: number,
   graph: FamilyGraph,
 ): void {
-  if (nodes.has(personId)) return // don't overwrite already-placed nodes
+  if (nodes.has(personId)) return
   const familyNode = graph.get(personId)
   if (!familyNode) return
   nodes.set(personId, { personId, person: familyNode.person, x, y, links: [] })

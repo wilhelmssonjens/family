@@ -50,9 +50,54 @@ interface PlacementContext {
   generations: Map<string, number>
   measuredWidths: Map<string, number>
   measuredPersonWidths: Map<string, number>
+  ancestorWidths: Map<string, number>
   nodes: Map<string, LayoutNode>
   placed: Set<string>
   placedFamilies: Set<string>
+}
+
+/**
+ * Measure how much horizontal space a person's ancestor chain needs.
+ * This includes siblings at each level (with their descendant widths)
+ * plus the recursive ancestor widths of each parent.
+ */
+function measureAncestorWidth(
+  personId: string,
+  unitsAsChild: Map<string, FamilyUnit[]>,
+  measuredPersonWidths: Map<string, number>,
+  cache: Map<string, number>,
+  visited: Set<string>,
+): number {
+  if (cache.has(personId)) return cache.get(personId)!
+  if (visited.has(personId)) return 0
+  visited.add(personId)
+
+  const birthFamilies = unitsAsChild.get(personId) ?? []
+  if (birthFamilies.length === 0) { cache.set(personId, 0); return 0 }
+
+  const family = birthFamilies[0]
+
+  // Sibling widths (all children except this person)
+  let siblingsWidth = 0
+  const siblings = family.childIds.filter(id => id !== personId)
+  for (const sibId of siblings) {
+    siblingsWidth += measuredPersonWidths.get(sibId) ?? CARD_SLOT
+  }
+  if (siblings.length > 0) {
+    siblingsWidth += siblings.length * CHILD_GAP
+  }
+
+  // Recursive: each parent's own ancestor width
+  let parentAncestorTotal = 0
+  for (const parentId of family.parentIds) {
+    parentAncestorTotal += measureAncestorWidth(
+      parentId, unitsAsChild, measuredPersonWidths, cache, visited
+    )
+  }
+
+  const width = Math.max(siblingsWidth, parentAncestorTotal)
+  cache.set(personId, width)
+  return width
 }
 
 /**
@@ -237,9 +282,21 @@ function placeAncestors(
   const maxChildX = Math.max(...placedChildXs)
   const familyCenterX = (minChildX + maxChildX) / 2
 
+  // Dynamic couple gap: if both parents have ancestor branches, the gap must
+  // be wide enough so their respective families (going in opposite directions)
+  // don't overlap. Measured ancestor widths tell us exactly how much room each needs.
+  let effectiveGap = PARTNER_GAP
   if (birthFamily.parentIds.length >= 2) {
-    placeNode(birthFamily.parentIds[0], familyCenterX - PARTNER_GAP / 2, parentGen * GENERATION_GAP, ctx)
-    placeNode(birthFamily.parentIds[1], familyCenterX + PARTNER_GAP / 2, parentGen * GENERATION_GAP, ctx)
+    const p0aw = ctx.ancestorWidths.get(birthFamily.parentIds[0]) ?? 0
+    const p1aw = ctx.ancestorWidths.get(birthFamily.parentIds[1]) ?? 0
+    if (p0aw > 0 || p1aw > 0) {
+      effectiveGap = Math.max(PARTNER_GAP, (p0aw + p1aw) / 2 + CHILD_GAP)
+    }
+  }
+
+  if (birthFamily.parentIds.length >= 2) {
+    placeNode(birthFamily.parentIds[0], familyCenterX - effectiveGap / 2, parentGen * GENERATION_GAP, ctx)
+    placeNode(birthFamily.parentIds[1], familyCenterX + effectiveGap / 2, parentGen * GENERATION_GAP, ctx)
     addLink(ctx.nodes, birthFamily.parentIds[0], birthFamily.parentIds[1], 'partner')
   } else if (birthFamily.parentIds.length === 1) {
     placeNode(birthFamily.parentIds[0], familyCenterX, parentGen * GENERATION_GAP, ctx)
@@ -252,13 +309,17 @@ function placeAncestors(
     }
   }
 
-  // Recurse: for each parent, place THEIR ancestors
-  // Both parents continue expanding in the same direction
-  for (const parentId of birthFamily.parentIds) {
-    const parentNode = ctx.nodes.get(parentId)
-    if (parentNode) {
-      placeAncestors(parentId, parentNode.x, parentGen, direction, ctx)
-    }
+  // Recurse: each parent's ancestors expand in OPPOSITE directions.
+  // First parent keeps `direction`, second gets `-direction`.
+  // This ensures Per's family fans one way and Laila's family the other.
+  if (birthFamily.parentIds.length >= 2) {
+    const p0node = ctx.nodes.get(birthFamily.parentIds[0])
+    const p1node = ctx.nodes.get(birthFamily.parentIds[1])
+    if (p0node) placeAncestors(birthFamily.parentIds[0], p0node.x, parentGen, direction, ctx)
+    if (p1node) placeAncestors(birthFamily.parentIds[1], p1node.x, parentGen, -direction, ctx)
+  } else if (birthFamily.parentIds.length === 1) {
+    const p0node = ctx.nodes.get(birthFamily.parentIds[0])
+    if (p0node) placeAncestors(birthFamily.parentIds[0], p0node.x, parentGen, direction, ctx)
   }
 }
 
@@ -356,6 +417,13 @@ export function computeTreeLayout(
     measuredPersonWidths.set(p.id, w)
   }
 
+  // Pre-compute ancestor widths (how wide each person's ancestor chain is)
+  const ancestorWidths = new Map<string, number>()
+  const ancestorVisited = new Set<string>()
+  for (const p of persons) {
+    measureAncestorWidth(p.id, unitsAsChild, measuredPersonWidths, ancestorWidths, ancestorVisited)
+  }
+
   // Build placement context
   const ctx: PlacementContext = {
     personMap,
@@ -365,6 +433,7 @@ export function computeTreeLayout(
     generations,
     measuredWidths,
     measuredPersonWidths,
+    ancestorWidths,
     nodes: new Map(),
     placed: new Set(),
     placedFamilies: new Set(),

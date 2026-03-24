@@ -212,9 +212,22 @@ function placeBranch(
   const coupleCenter = (minX + maxX) / 2
   const parentY = backboneY - GENERATION_GAP
 
+  // Dynamic couple gap: if both parents have ancestor branches with siblings,
+  // they need enough space between them so their respective families don't overlap.
+  let effectiveGap = PARTNER_GAP
+  if (branch.coupleIds.length >= 2 && branch.parentBranches.length === 2) {
+    const pb0SibWidth = branch.parentBranches[0].siblings.reduce(
+      (s, sib) => s + sib.width + CHILD_GAP, CARD_SLOT
+    )
+    const pb1SibWidth = branch.parentBranches[1].siblings.reduce(
+      (s, sib) => s + sib.width + CHILD_GAP, CARD_SLOT
+    )
+    effectiveGap = Math.max(PARTNER_GAP, (pb0SibWidth + pb1SibWidth) / 2 + CHILD_GAP)
+  }
+
   if (branch.coupleIds.length >= 2) {
-    emit(nodes, branch.coupleIds[0], coupleCenter - PARTNER_GAP / 2, parentY, graph)
-    emit(nodes, branch.coupleIds[1], coupleCenter + PARTNER_GAP / 2, parentY, graph)
+    emit(nodes, branch.coupleIds[0], coupleCenter - effectiveGap / 2, parentY, graph)
+    emit(nodes, branch.coupleIds[1], coupleCenter + effectiveGap / 2, parentY, graph)
     addLink(nodes, branch.coupleIds[0], branch.coupleIds[1], 'partner')
   } else {
     emit(nodes, branch.coupleIds[0], coupleCenter, parentY, graph)
@@ -225,12 +238,10 @@ function placeBranch(
     const parentFamilyNode = graph.get(parentId)
     if (!parentFamilyNode) continue
 
-    // Link to backbone child
     if (parentFamilyNode.childIds.includes(branch.backboneChildId)) {
       addLink(nodes, parentId, branch.backboneChildId, 'parent-child')
     }
 
-    // Link to siblings
     for (const sib of branch.siblings) {
       if (parentFamilyNode.childIds.includes(sib.personId)) {
         addLink(nodes, parentId, sib.personId, 'parent-child')
@@ -238,18 +249,20 @@ function placeBranch(
     }
   }
 
-  // 4. Recurse for ancestor branches above
-  for (const parentBranch of branch.parentBranches) {
-    const parentNode = nodes.get(parentBranch.backboneChildId)
-    if (!parentNode) {
-      // The backbone child of the parent branch should be one of our coupleIds
-      // Find their position
-      const pos = nodes.get(parentBranch.backboneChildId)
-      if (pos) {
-        placeBranch(parentBranch, pos.x, parentY, direction, nodes, graph)
+  // 4. Recurse for ancestor branches above.
+  // If two parent branches: they go in OPPOSITE directions from the couple.
+  // First parent's family spreads in `direction`, second in `-direction`.
+  if (branch.parentBranches.length === 2) {
+    const pb0Node = nodes.get(branch.parentBranches[0].backboneChildId)
+    const pb1Node = nodes.get(branch.parentBranches[1].backboneChildId)
+    if (pb0Node) placeBranch(branch.parentBranches[0], pb0Node.x, parentY, direction, nodes, graph)
+    if (pb1Node) placeBranch(branch.parentBranches[1], pb1Node.x, parentY, -direction, nodes, graph)
+  } else {
+    for (const parentBranch of branch.parentBranches) {
+      const parentNode = nodes.get(parentBranch.backboneChildId)
+      if (parentNode) {
+        placeBranch(parentBranch, parentNode.x, parentY, direction, nodes, graph)
       }
-    } else {
-      placeBranch(parentBranch, parentNode.x, parentY, direction, nodes, graph)
     }
   }
 }

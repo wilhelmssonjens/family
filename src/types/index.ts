@@ -50,3 +50,43 @@ export interface PositionedFamilyConnector {
   parentY: number
   childY: number
 }
+
+// --- V3 Layout Types ---
+
+export interface VisualPersonNode {
+  visualId: string // e.g. "p:anna@f:f1:parent"
+  personId: string
+  person: Person
+  familyId: string
+  role: 'parent' | 'child'
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+export interface PositionedFamilyConnectorV3 {
+  familyId: string
+  parentVisualIds: string[]
+  childVisualIds: string[]
+  centerX: number
+  parentY: number
+  childY: number
+}
+
+export interface LayoutResultV3 {
+  visualNodes: VisualPersonNode[]
+  families: PositionedFamilyConnectorV3[]
+  nodeIndex: Map<string, VisualPersonNode>
+  width: number
+  height: number
+}
+
+export interface LayoutConfig {
+  generationGap: number
+  partnerGap: number
+  cardMargin: number
+  childGap: number
+  cardWidth: number
+  cardHeight: number
+}

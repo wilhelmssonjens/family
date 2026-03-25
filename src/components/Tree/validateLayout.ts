@@ -71,7 +71,7 @@ export function validateLayoutResult(result: LayoutResultV3): void {
     const uniqueXs = [...new Set(xPositions)].sort((a, b) => a - b)
     for (let i = 1; i < uniqueXs.length; i++) {
       const gap = uniqueXs[i] - uniqueXs[i - 1]
-      if (gap < result.visualNodes[0]?.width ?? 140) {
+      if (gap < (result.visualNodes[0]?.width ?? 140)) {
         errors.push(`Overlap at y=${y}: gap=${gap}px between x=${uniqueXs[i - 1]} and x=${uniqueXs[i]}`)
       }
     }

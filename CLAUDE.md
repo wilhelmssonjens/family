@@ -11,7 +11,7 @@ public/data/          # persons.json, relationships.json (runtime fetch)
 public/photos/        # Bilder på familjemedlemmar
 src/
   components/
-    Tree/             # TreeView (D3 pan/zoom), TreeLayout, Minimap
+    Tree/             # TreeView (D3 pan/zoom), v3 layout pipeline (6 moduler), Minimap
     PersonCard/       # PersonCardMini (SVG), PersonModal (centrerad modal med visning/redigering)
     AddForm/          # AddRelativeModal (modal med relationstypväljare + formulär)
     Modal/            # Återanvändbar Modal-komponent

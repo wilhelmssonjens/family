@@ -4,39 +4,82 @@
 
 Horisontell trädvy renderad med D3.js i SVG. Jens & Klara i mitten, Jens släkt expanderar åt vänster, Klaras åt höger. Pan/zoom med d3-zoom.
 
+## Arkitektur (v3 family-first)
+
+Layoutmotorn är uppdelad i moduler med en tydlig pipeline:
+
+```
+buildFamilyUnits → pickCenterFamily → assignGenerations → measureAllV3 → placeFamilyV3/placeAncestorsV3 → validateLayoutResult → LayoutResultV3
+```
+
+**Nyckelprinciper:**
+- **Familjen är layoutens enda enhet** — all placering utgår från `FamilyUnit`, inte enskilda personer
+- **Visuell instansmodell** — samma person kan förekomma i flera familjekontexter (t.ex. som förälder i två familjer)
+- **Deterministisk** — all sortering och val är stabilt och reproducerbart
+- **Hård validering** — oplacerade noder och överlapp ger fel i dev/test
+
 ## Nyckelfiler
-- `src/components/Tree/TreeLayout.ts` — Ren funktion: `computeTreeLayout(persons, rels, centerId) → LayoutNode[]`
-- `src/components/Tree/TreeView.tsx` — D3 SVG-rendering med pan/zoom
+
+### Layout-pipeline
+- `src/components/Tree/computeTreeLayoutV3.ts` — Orkestrator: `computeTreeLayoutV3(persons, rels, centerId) → LayoutResultV3`
+- `src/components/Tree/familySelection.ts` — `pickCenterFamily()` (returnerar FamilyUnit), `pickPrimaryBirthFamily()`
+- `src/components/Tree/assignGenerations.ts` — BFS-generationstilldelning, enda sanningskälla för generationer
+- `src/components/Tree/measureLayout.ts` — Bottom-up familjemätning med per-familyId memoization
+- `src/components/Tree/placeLayout.ts` — Top-down placering med visuella instanser (`VisualPersonNode`)
+- `src/components/Tree/validateLayout.ts` — Hård validering: överlapp, saknade noder, duplicerade IDs
+- `src/components/Tree/TreeLayout.ts` — Barrel-fil som re-exporterar alla v3-moduler
+
+### Rendering
+- `src/components/Tree/TreeView.tsx` — D3 SVG-rendering med pan/zoom, konsumerar `LayoutResultV3`
 - `src/components/Tree/Minimap.tsx` — Nedskalad silhuett med viewport-rektangel
 - `src/components/PersonCard/PersonCardMini.tsx` — SVG-personkort (klickbart, öppnar modal)
+
+### Interaktion
 - `src/components/PersonCard/PersonModal.tsx` — Modal med persondetaljer, redigering och lägg-till-släkting
-- `src/components/AddForm/AddRelativeModal.tsx` — Modal för att lägga till ny släkting med relationstypväljare
-- `src/components/Modal/Modal.tsx` — Återanvändbar modal-komponent med backdrop och Escape-stöd
+- `src/components/AddForm/AddRelativeModal.tsx` — Modal för att lägga till ny släkting
+- `src/components/Modal/Modal.tsx` — Återanvändbar modal-komponent
 
-## Layout-algoritm (TreeLayout.ts)
+## Layout-pipeline i detalj
 
-### Konstanter
-- `GENERATION_GAP = 300` — Avstånd mellan generationer (y-axel)
-- `SIBLING_GAP = 250` — Avstånd mellan syskon (x-axel)
+### 1. buildFamilyUnits (buildTree.ts)
+Bygger `FamilyUnit[]` från personer och relationer. Varje FamilyUnit grupperar en föräldrauppsättning (1-2 föräldrar) med deras gemensamma barn. Deterministisk sortering via födelseår → id.
+
+### 2. pickCenterFamily (familySelection.ts)
+Returnerar faktisk `FamilyUnit` (inte partner-id). Urvalsordning: parent-familj föredras → flest barn → tvåförälder → tidigaste barns födelseår → familyId.
+
+### 3. assignGenerations (assignGenerations.ts)
+BFS från centerperson. Center = 0, föräldrar = -1, barn = +1. Partners delar alltid generation. Enda sanningskälla.
+
+### 4. measureAllV3 (measureLayout.ts)
+Bottom-up mätning. Returnerar tre maps: `familyWidths`, `personWidths`, `ancestorWidths`.
+
+**Nyckelskillnad:** person med flera parent-familjer (omgifte) → bredd = **summa** av familjers bredd (inte max). Per-familyId memoization, inget delat visited-set.
+
+### 5. Placement (placeLayout.ts)
+- `placeFamilyV3()` — placerar familjeblock: föräldrar centrerade, barn distribuerade under
+- `placeAncestorsV3()` — expanderar ancestors vänster/höger med riktningsalternering
+- Skapar `VisualPersonNode` med unikt `visualId` (format: `p:${personId}@f:${familyId}:${role}`)
+- Familjenivå-dedup (inte personnivå) — samma person kan placeras i flera familjekontexter
+
+### 6. validateLayoutResult (validateLayout.ts)
+Kontrollerar: inga duplicerade visualIds, finite x/y, giltiga connector-referenser, inga överlapp. Kastar Error i dev/test, console.warn i prod.
+
+## Konstanter
+- `GENERATION_GAP = 250` — Avstånd mellan generationer (y-axel)
 - `PARTNER_GAP = 160` — Avstånd mellan partners i ett par
-
-### Placering
-1. Centerparet (Jens & Klara) placeras vid (±PARTNER_GAP/2, 0)
-2. `expandAncestorsByGeneration()` expanderar uppåt (BFS, generation för generation):
-   - Föräldrar placeras centrerade ovanför sina barn, partners sida vid sida
-   - Syskon placeras horisontellt i samma y-rad som den person de delar förälder med
-   - Om en förälder bara har en parent-relation men har en partner, placeras partnern automatiskt bredvid
-3. Barn till centerparet placeras nedanför (y > 0)
-4. `placeUnvisitedPartners()` fångar upp kvarvarande oplacerade partners
-5. `resolveOverlaps()` skjuter isär kort som överlappar
+- `CHILD_GAP = 60` — Avstånd mellan syskon (x-axel)
+- `CARD_WIDTH = 140`, `CARD_HEIGHT = 90` — Kortdimensioner
+- `CARD_MARGIN = 20` — Marginal runt kort
 
 ## Kopplingslinjer
 
-Alla kopplingar mellan personer ritas med **orthogonala (rätvinkliga) linjer** — inga diagonaler.
+Alla kopplingar ritas med **orthogonala (rätvinkliga) linjer** — inga diagonaler.
 
-- **Partner-kopplingar**: Streckade linjer (`#c4a77d`) med 90-graders armbågar (H → V → H)
-- **Förälder-barn**: SVG `<path>` med vertikala och horisontella segment (V → H → V)
-- **Bracket-grupper** (flera barn): Vertikal linje från föräldracentrum till junction-Y, horisontell linje som spänner alla barn, vertikala linjer ner till varje barn
+- **Partner-kopplingar**: Streckade linjer (`#c4a77d`) med 90-graders armbågar
+- **Förälder-barn**: SVG `<path>` med vertikala och horisontella segment
+- **Bracket-grupper** (flera barn): Vertikal linje → horisontell spännlinje → vertikala linjer ner
+
+Connector-data kommer direkt från `PositionedFamilyConnectorV3` i layoutresultatet — TreeView rekonstruerar aldrig familjer.
 
 ## Personkort (PersonCardMini)
 
@@ -52,24 +95,27 @@ Alla kopplingar mellan personer ritas med **orthogonala (rätvinkliga) linjer** 
 
 Klick på ett PersonCardMini-kort i trädet öppnar en centrerad modal (PersonModal) som visar all personinfo. Modalen har tre lägen:
 
-1. **Visning**: Foto/initialer, namn, födelse/dödsinfo, yrke, berättelser, kontaktinfo. Knappar: Redigera, Lägg till släkting, Stäng.
-2. **Redigering**: Alla fält blir redigerbara inline. Knappar: Spara, Avbryt.
-3. **Lägg till släkting**: Öppnar AddRelativeModal med relationstypväljare (förälder/syskon/partner/barn). Två lägen:
-   - **Ny person**: Kön-väljare + formulärfält (skapar ny person + relation)
-   - **Befintlig person**: Sökruta som filtrerar bland alla personer (skapar bara en relation via `relationType: 'link'` i API:et)
-
-Modaler renderas som DOM-element ovanpå SVG-trädet (inte via foreignObject), vilket ger konsekvent beteende på desktop och mobil.
-
-## Kollisionsdetektering
-
-`resolveOverlaps()` körs som sista steg i `computeTreeLayout`. Den grupperar noder per y-rad, sorterar per x, och skjuter isär kort som överlappar (baserat på `CARD_WIDTH + 20px` marginal). Garanterar att inga kort överlappar oavsett data.
+1. **Visning**: Foto/initialer, namn, födelse/dödsinfo, yrke, berättelser, kontaktinfo.
+2. **Redigering**: Alla fält blir redigerbara inline.
+3. **Lägg till släkting**: Öppnar AddRelativeModal med relationstypväljare.
 
 ## Fade-in-animation
 
-Nyligen tillagda personer animeras in med en 0.5s `fadeIn`-animation (scale 0.85→1 + opacity 0→1). `highlightPersonId` skickas från App→TreeView→PersonCardMini. Animationen varar 1.5s totalt innan highlight-state rensas.
+Nyligen tillagda personer animeras in med en 0.5s `fadeIn`-animation (scale 0.85→1 + opacity 0→1). `highlightPersonId` skickas från App→TreeView→PersonCardMini.
+
+## Teststruktur
+
+| Fil | Tester | Ansvar |
+|-----|--------|--------|
+| `computeTreeLayoutV3.test.ts` | 22 | Integration: center, ancestors, overlaps, multi-partner, half-siblings |
+| `assignGenerations.test.ts` | 10 | BFS-generationer, getGeneration |
+| `measureLayout.test.ts` | 13 | Familjemätning, multi-familj summa, ordningsoberoende |
+| `familySelection.test.ts` | 10 | pickCenterFamily, pickPrimaryBirthFamily |
+| `validateLayout.test.ts` | 10 | Validering: duplicerade ids, överlapp, saknade noder |
+| `TreeLayout.test.ts` | 3 | Barrel re-export-verifiering |
 
 ## Hur man ändrar layouten
-1. Justera konstanter i `TreeLayout.ts` (gap-värden)
-2. Ändra `expandAncestors()` för ny placeringsstrategi
-3. `resolveOverlaps()` säkerställer att inga kort krockar
-4. Tester i `TreeLayout.test.ts` verifierar att center, parents, siblings placeras korrekt och att inga kort överlappar
+1. Justera konstanter i `measureLayout.ts` (via `defaultLayoutConfig()`)
+2. Ändra `placeAncestorsV3()` för ny placeringsstrategi
+3. `validateLayoutResult()` säkerställer att inga kort krockar
+4. Tester i `computeTreeLayoutV3.test.ts` verifierar alla invarianter

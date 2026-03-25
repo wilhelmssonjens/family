@@ -6,7 +6,6 @@ import type {
   LayoutConfig,
 } from '../../types'
 import type { GenerationTable } from './assignGenerations'
-import { getGeneration } from './assignGenerations'
 import { pickPrimaryBirthFamily } from './familySelection'
 import type { MeasureResult } from './measureLayout'
 

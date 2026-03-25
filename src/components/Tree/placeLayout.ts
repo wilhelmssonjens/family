@@ -69,6 +69,21 @@ export function placeVisualNode(
   return node
 }
 
+/**
+ * Find an existing visual node for a person at a given y level.
+ * Used to detect when a parent was already placed as a child in a birth family.
+ */
+function findExistingNodeAtY(
+  personId: string,
+  y: number,
+  ctx: PlacementContextV3,
+): VisualPersonNode | null {
+  for (const node of ctx.visualNodes.values()) {
+    if (node.personId === personId && node.y === y) return node
+  }
+  return null
+}
+
 // --- Family placement ---
 
 /**
@@ -89,36 +104,77 @@ export function placeFamilyV3(
 
   const parentVisualIds: string[] = []
 
-  // Place parents
+  // Place parents.
+  // If a parent was already placed as a child in a birth family at the same y level,
+  // reuse that position and place the partner relative to it (no duplicate card).
   if (family.parentIds.length >= 2) {
-    const n0 = placeVisualNode(
-      family.parentIds[0], family.id, 'parent',
-      centerX - ctx.config.partnerGap / 2, y, ctx,
-    )
-    const n1 = placeVisualNode(
-      family.parentIds[1], family.id, 'parent',
-      centerX + ctx.config.partnerGap / 2, y, ctx,
-    )
-    if (n0) parentVisualIds.push(n0.visualId)
-    if (n1) parentVisualIds.push(n1.visualId)
+    const existing0 = findExistingNodeAtY(family.parentIds[0], y, ctx)
+    const existing1 = findExistingNodeAtY(family.parentIds[1], y, ctx)
+
+    if (existing0 && !existing1) {
+      // Parent 0 already placed as child — partner goes to the right
+      parentVisualIds.push(existing0.visualId)
+      const n1 = placeVisualNode(
+        family.parentIds[1], family.id, 'parent',
+        existing0.x + ctx.config.partnerGap, y, ctx,
+      )
+      if (n1) parentVisualIds.push(n1.visualId)
+    } else if (existing1 && !existing0) {
+      // Parent 1 already placed as child — partner goes to the left
+      const n0 = placeVisualNode(
+        family.parentIds[0], family.id, 'parent',
+        existing1.x - ctx.config.partnerGap, y, ctx,
+      )
+      if (n0) parentVisualIds.push(n0.visualId)
+      parentVisualIds.push(existing1.visualId)
+    } else if (existing0 && existing1) {
+      // Both already placed — just reference them
+      parentVisualIds.push(existing0.visualId)
+      parentVisualIds.push(existing1.visualId)
+    } else {
+      // Neither placed — normal placement
+      const n0 = placeVisualNode(
+        family.parentIds[0], family.id, 'parent',
+        centerX - ctx.config.partnerGap / 2, y, ctx,
+      )
+      const n1 = placeVisualNode(
+        family.parentIds[1], family.id, 'parent',
+        centerX + ctx.config.partnerGap / 2, y, ctx,
+      )
+      if (n0) parentVisualIds.push(n0.visualId)
+      if (n1) parentVisualIds.push(n1.visualId)
+    }
   } else if (family.parentIds.length === 1) {
-    const n0 = placeVisualNode(
-      family.parentIds[0], family.id, 'parent',
-      centerX, y, ctx,
-    )
-    if (n0) parentVisualIds.push(n0.visualId)
+    const existing0 = findExistingNodeAtY(family.parentIds[0], y, ctx)
+    if (existing0) {
+      parentVisualIds.push(existing0.visualId)
+    } else {
+      const n0 = placeVisualNode(
+        family.parentIds[0], family.id, 'parent',
+        centerX, y, ctx,
+      )
+      if (n0) parentVisualIds.push(n0.visualId)
+    }
   }
 
   const childGeneration = generation + 1
   const childY = childGeneration * ctx.config.generationGap
   const childVisualIds: string[] = []
 
+  // Compute actual centerX from placed parent positions
+  let actualCenterX = centerX
+  if (parentVisualIds.length > 0) {
+    const parentXs = parentVisualIds
+      .map(vid => ctx.visualNodes.get(vid)?.x ?? centerX)
+    actualCenterX = parentXs.reduce((sum, x) => sum + x, 0) / parentXs.length
+  }
+
   // Build connector
   const connector: PositionedFamilyConnectorV3 = {
     familyId: family.id,
     parentVisualIds,
     childVisualIds,
-    centerX,
+    centerX: actualCenterX,
     parentY: y,
     childY,
   }
@@ -134,7 +190,7 @@ export function placeFamilyV3(
   )
   const totalWidth = childWidths.reduce((sum, w) => sum + w, 0)
     + ctx.config.childGap * (family.childIds.length - 1)
-  let cursor = centerX - totalWidth / 2
+  let cursor = actualCenterX - totalWidth / 2
 
   for (let i = 0; i < family.childIds.length; i++) {
     const childId = family.childIds[i]

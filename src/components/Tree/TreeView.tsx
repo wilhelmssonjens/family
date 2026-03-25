@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState } from 'react'
 import { select } from 'd3-selection'
 import { zoom, zoomIdentity, type ZoomBehavior } from 'd3-zoom'
-import { computeTreeLayout } from './TreeLayout'
+import { computeTreeLayoutV3 } from './computeTreeLayoutV3'
 import { PersonCardMini } from '../PersonCard/PersonCardMini'
 import { Minimap } from './Minimap'
 import type { Person, Relationship } from '../../types'
@@ -20,7 +20,8 @@ export function TreeView({ persons, relationships, centerId, highlightPersonId, 
   const [transform, setTransform] = useState({ x: 0, y: 0, k: 1 })
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 })
 
-  const { nodes, families } = computeTreeLayout(persons, relationships, centerId)
+  const result = computeTreeLayoutV3(persons, relationships, centerId)
+  const { visualNodes, families, nodeIndex } = result
 
   useEffect(() => {
     if (!svgRef.current) return
@@ -68,12 +69,12 @@ export function TreeView({ persons, relationships, centerId, highlightPersonId, 
         <g ref={gRef} transform={`translate(${transform.x}, ${transform.y}) scale(${transform.k})`}>
           {/* Family connectors: partner lines + parent-child brackets */}
           {families.map((fam, i) => {
-            const parentPositions = fam.parentIds
-              .map(id => nodes.find(n => n.personId === id))
-              .filter((n): n is typeof nodes[0] => n !== undefined)
-            const childPositions = fam.childIds
-              .map(id => nodes.find(n => n.personId === id))
-              .filter((n): n is typeof nodes[0] => n !== undefined)
+            const parentPositions = fam.parentVisualIds
+              .map(vid => nodeIndex.get(vid))
+              .filter((n): n is NonNullable<typeof n> => n !== undefined)
+            const childPositions = fam.childVisualIds
+              .map(vid => nodeIndex.get(vid))
+              .filter((n): n is NonNullable<typeof n> => n !== undefined)
 
             if (parentPositions.length === 0) return null
 
@@ -133,9 +134,9 @@ export function TreeView({ persons, relationships, centerId, highlightPersonId, 
             )
           })}
 
-          {nodes.map((node) => (
+          {visualNodes.map((node) => (
             <PersonCardMini
-              key={node.personId}
+              key={node.visualId}
               person={node.person}
               x={node.x}
               y={node.y}
@@ -146,7 +147,7 @@ export function TreeView({ persons, relationships, centerId, highlightPersonId, 
         </g>
       </svg>
       <Minimap
-        nodes={nodes}
+        nodes={visualNodes}
         viewportX={transform.x}
         viewportY={transform.y}
         viewportWidth={dimensions.width}

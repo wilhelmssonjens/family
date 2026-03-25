@@ -1,6 +1,6 @@
 import { render } from '@testing-library/react';
 import { Minimap } from './Minimap';
-import type { LayoutNode } from './TreeLayout';
+import type { VisualPersonNode } from '../../types';
 
 const makePerson = () => ({
   id: 'x',
@@ -19,10 +19,10 @@ const makePerson = () => ({
   familySide: 'center' as const,
 });
 
-const mockNodes: LayoutNode[] = [
-  { personId: 'n1', person: makePerson(), x: 0, y: 0, links: [] },
-  { personId: 'n2', person: makePerson(), x: 200, y: 0, links: [] },
-  { personId: 'n3', person: makePerson(), x: 100, y: 150, links: [] },
+const mockNodes: VisualPersonNode[] = [
+  { visualId: 'v1', personId: 'n1', person: makePerson(), familyId: 'f1', role: 'parent', x: 0, y: 0, width: 140, height: 90 },
+  { visualId: 'v2', personId: 'n2', person: makePerson(), familyId: 'f1', role: 'parent', x: 200, y: 0, width: 140, height: 90 },
+  { visualId: 'v3', personId: 'n3', person: makePerson(), familyId: 'f1', role: 'child', x: 100, y: 150, width: 140, height: 90 },
 ];
 
 describe('Minimap', () => {

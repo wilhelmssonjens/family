@@ -1,7 +1,7 @@
-import type { LayoutNode } from './TreeLayout'
+import type { VisualPersonNode } from '../../types'
 
 interface Props {
-  nodes: LayoutNode[]
+  nodes: VisualPersonNode[]
   viewportX: number
   viewportY: number
   viewportWidth: number
@@ -39,7 +39,7 @@ export function Minimap({ nodes, viewportX, viewportY, viewportWidth, viewportHe
       <svg width={MINIMAP_WIDTH} height={MINIMAP_HEIGHT}>
         {nodes.map((node) => (
           <circle
-            key={node.personId}
+            key={node.visualId}
             cx={(node.x - minX) * s}
             cy={(node.y - minY) * s}
             r={3}

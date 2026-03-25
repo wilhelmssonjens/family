@@ -10,6 +10,7 @@ import {
   makeVisualId,
   type PlacementContextV3,
 } from './placeLayout'
+import { validateLayoutResult } from './validateLayout'
 
 // Re-export for backward compatibility
 export { makeVisualId } from './placeLayout'
@@ -171,11 +172,16 @@ export function computeTreeLayoutV3(
     maxY = Math.max(maxY, node.y + node.height / 2)
   }
 
-  return {
+  const layoutResult: LayoutResultV3 = {
     visualNodes,
     families: ctx.familyConnectors,
     nodeIndex,
     width: visualNodes.length > 0 ? maxX - minX : 0,
     height: visualNodes.length > 0 ? maxY - minY : 0,
   }
+
+  // 13. Validate
+  validateLayoutResult(layoutResult)
+
+  return layoutResult
 }

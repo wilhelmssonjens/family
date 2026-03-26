@@ -170,27 +170,130 @@
     "from": "greta",
     "to": "karin-wernmark"
   },
-  { "type": "partner", "from": "birgitta", "to": "alf", "status": "current" },
-  { "type": "parent", "from": "birgitta", "to": "jacob-wikmark" },
-  { "type": "partner", "from": "jacob-wikmark", "to": "karolina", "status": "current" },
-  { "type": "parent", "from": "jacob-wikmark", "to": "agnes" },
-  { "type": "parent", "from": "karolina", "to": "agnes" },
-  { "type": "partner", "from": "hampus-wikmark", "to": "linnea", "status": "current" },
-  { "type": "parent", "from": "hampus-wikmark", "to": "knut" },
-  { "type": "parent", "from": "linnea", "to": "knut" },
-  { "type": "partner", "from": "mats", "to": "anne", "status": "current" },
-  { "type": "parent", "from": "mats", "to": "madeleine" },
-  { "type": "parent", "from": "mats", "to": "robert" },
-  { "type": "partner", "from": "arne-johansson", "to": "gunnel-johansson", "status": "current" },
-  { "type": "parent", "from": "arne-johansson", "to": "mikael-johansson" },
-  { "type": "parent", "from": "gunnel-johansson", "to": "mikael-johansson" },
-  { "type": "parent", "from": "arne-johansson", "to": "maria-johansson" },
-  { "type": "parent", "from": "gunnel-johansson", "to": "maria-johansson" },
-  { "type": "partner", "from": "inger-sand", "to": "johnny-sand", "status": "current" },
-  { "type": "parent", "from": "inger-sand", "to": "johan-sand" },
-  { "type": "parent", "from": "johnny-sand", "to": "johan-sand" },
-  { "type": "parent", "from": "inger-sand", "to": "david-sand" },
-  { "type": "parent", "from": "johnny-sand", "to": "david-sand" },
-  { "type": "parent", "from": "inger-sand", "to": "anna-sand" },
-  { "type": "parent", "from": "johnny-sand", "to": "anna-sand" }
+  {
+    "type": "partner",
+    "from": "birgitta",
+    "to": "alf",
+    "status": "current"
+  },
+  {
+    "type": "parent",
+    "from": "birgitta",
+    "to": "jacob-wikmark"
+  },
+  {
+    "type": "partner",
+    "from": "jacob-wikmark",
+    "to": "karolina",
+    "status": "current"
+  },
+  {
+    "type": "parent",
+    "from": "jacob-wikmark",
+    "to": "agnes"
+  },
+  {
+    "type": "parent",
+    "from": "karolina",
+    "to": "agnes"
+  },
+  {
+    "type": "partner",
+    "from": "hampus-wikmark",
+    "to": "linnea",
+    "status": "current"
+  },
+  {
+    "type": "parent",
+    "from": "hampus-wikmark",
+    "to": "knut"
+  },
+  {
+    "type": "parent",
+    "from": "linnea",
+    "to": "knut"
+  },
+  {
+    "type": "partner",
+    "from": "mats",
+    "to": "anne",
+    "status": "current"
+  },
+  {
+    "type": "parent",
+    "from": "mats",
+    "to": "madeleine"
+  },
+  {
+    "type": "parent",
+    "from": "mats",
+    "to": "robert"
+  },
+  {
+    "type": "partner",
+    "from": "arne-johansson",
+    "to": "gunnel-johansson",
+    "status": "current"
+  },
+  {
+    "type": "parent",
+    "from": "arne-johansson",
+    "to": "mikael-johansson"
+  },
+  {
+    "type": "parent",
+    "from": "gunnel-johansson",
+    "to": "mikael-johansson"
+  },
+  {
+    "type": "parent",
+    "from": "arne-johansson",
+    "to": "maria-johansson"
+  },
+  {
+    "type": "parent",
+    "from": "gunnel-johansson",
+    "to": "maria-johansson"
+  },
+  {
+    "type": "partner",
+    "from": "inger-sand",
+    "to": "johnny-sand",
+    "status": "current"
+  },
+  {
+    "type": "parent",
+    "from": "inger-sand",
+    "to": "johan-sand"
+  },
+  {
+    "type": "parent",
+    "from": "johnny-sand",
+    "to": "johan-sand"
+  },
+  {
+    "type": "parent",
+    "from": "inger-sand",
+    "to": "david-sand"
+  },
+  {
+    "type": "parent",
+    "from": "johnny-sand",
+    "to": "david-sand"
+  },
+  {
+    "type": "parent",
+    "from": "inger-sand",
+    "to": "anna-sand"
+  },
+  {
+    "type": "parent",
+    "from": "johnny-sand",
+    "to": "anna-sand"
+  },
+  {
+    "type": "parent",
+    "from": "jens",
+    "to": "sune-ahlbck"
+  }
 ]

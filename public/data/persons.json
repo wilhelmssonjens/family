@@ -762,5 +762,21 @@
     "stories": [],
     "contactInfo": null,
     "familySide": "center"
+  },
+  {
+    "id": "lennart-oleskog",
+    "firstName": "Lennart",
+    "lastName": "Oleskog",
+    "birthName": null,
+    "birthDate": "1922",
+    "birthPlace": null,
+    "deathDate": "2002",
+    "deathPlace": null,
+    "gender": "male",
+    "occupation": null,
+    "photos": [],
+    "stories": [],
+    "contactInfo": null,
+    "familySide": "center"
   }
 ]

@@ -32,7 +32,6 @@ interface Props {
 export function PersonModal({ person, persons, relationLabel, onClose, onSave, onDelete, onAddRelative }: Props) {
   const [editing, setEditing] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const [expandedStory, setExpandedStory] = useState<number | null>(null)
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [form, setForm] = useState<EditPersonData>({
@@ -191,22 +190,22 @@ export function PersonModal({ person, persons, relationLabel, onClose, onSave, o
             </button>
           </div>
 
-          {/* Stories */}
+          {/* Övrig information */}
           <div className="mb-5">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="font-serif font-semibold text-text-primary text-sm">Berättelser</h3>
+              <h3 className="font-serif font-semibold text-text-primary text-sm">Övrig information</h3>
               <button
                 type="button"
                 onClick={addStory}
                 className="text-xs font-sans text-accent hover:text-accent-dark transition-colors"
               >
-                + Lägg till berättelse
+                + Lägg till
               </button>
             </div>
             {form.stories.map((story, i) => (
               <div key={i} className="mb-3 p-3 border border-bg-secondary rounded-lg">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-sans text-text-secondary">Berättelse {i + 1}</span>
+                  <span className="text-xs font-sans text-text-secondary">Info {i + 1}</span>
                   <button
                     type="button"
                     onClick={() => removeStory(i)}
@@ -217,14 +216,14 @@ export function PersonModal({ person, persons, relationLabel, onClose, onSave, o
                 </div>
                 <input
                   className={`${inputClass} mb-2`}
-                  placeholder="Titel"
+                  placeholder="Rubrik (valfritt)"
                   value={story.title}
                   onChange={(e) => updateStory(i, 'title', e.target.value)}
                 />
                 <textarea
                   className={`${inputClass} resize-none`}
                   rows={3}
-                  placeholder="Berättelse..."
+                  placeholder="Skriv här..."
                   value={story.text}
                   onChange={(e) => updateStory(i, 'text', e.target.value)}
                 />
@@ -335,24 +334,19 @@ export function PersonModal({ person, persons, relationLabel, onClose, onSave, o
           )}
         </div>
 
-        {/* Stories */}
+        {/* Övrig information (formerly "Berättelser") */}
         {person.stories.length > 0 && (
           <div className="mb-5">
-            <h3 className="font-serif font-semibold text-text-primary text-sm mb-2">Berättelser</h3>
-            <div className="space-y-2">
+            <h3 className="font-serif font-semibold text-text-primary text-sm mb-2">Övrig information</h3>
+            <div className="space-y-3">
               {person.stories.map((story, i) => (
-                <div key={i} className="border border-bg-secondary rounded-lg overflow-hidden">
-                  <button
-                    className="w-full text-left px-3 py-2 text-sm font-sans font-medium text-text-primary hover:bg-bg-secondary/50 transition-colors"
-                    onClick={() => setExpandedStory(expandedStory === i ? null : i)}
-                  >
-                    {story.title}
-                  </button>
-                  {expandedStory === i && (
-                    <p className="px-3 pb-3 text-sm font-sans text-text-secondary leading-relaxed">
-                      {story.text}
-                    </p>
+                <div key={i}>
+                  {story.title && (
+                    <p className="text-sm font-sans font-medium text-text-primary mb-0.5">{story.title}</p>
                   )}
+                  <p className="text-sm font-sans text-text-secondary leading-relaxed whitespace-pre-wrap">
+                    {story.text}
+                  </p>
                 </div>
               ))}
             </div>

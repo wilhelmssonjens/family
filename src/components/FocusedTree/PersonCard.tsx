@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import type { Person } from '../../types'
 
 interface Props {
@@ -22,35 +21,25 @@ function getInitials(person: Person): string {
 
 export function PersonCard({ person, isCenter, onNavigate, onShowInfo }: Props) {
   const hasPhoto = person.photos.length > 0
-  const [showActions, setShowActions] = useState(false)
 
   return (
-    <div
-      className="relative group"
-      onMouseEnter={() => setShowActions(true)}
-      onMouseLeave={() => setShowActions(false)}
-      onTouchStart={() => setShowActions(prev => !prev)}
-    >
-      {/* Card */}
+    <div className="relative group">
+      {/* Card — tap always opens info */}
       <div
         className={`
-          flex flex-col items-center gap-1 p-3 rounded-xl border-2 bg-card-bg
+          flex flex-col items-center gap-1 p-2 sm:p-3 rounded-xl border sm:border-2 bg-card-bg
           transition-all duration-200 cursor-pointer
           ${isCenter
-            ? 'border-accent shadow-md w-44 min-h-28'
-            : 'border-card-border/40 w-36 min-h-20 hover:shadow-md hover:-translate-y-0.5 hover:border-accent'
+            ? 'border-accent shadow-md w-36 sm:w-44 min-h-0'
+            : 'border-card-border/40 w-28 sm:w-36 min-h-0 hover:shadow-md hover:-translate-y-0.5 hover:border-accent'
           }
         `}
-        onClick={() => {
-          // On click: navigate (or show info if center)
-          if (isCenter && onShowInfo) onShowInfo()
-          else if (onNavigate) onNavigate()
-        }}
+        onClick={() => onShowInfo?.()}
       >
         {/* Photo or initials */}
         <div className={`
           rounded-full flex items-center justify-center border-2 border-accent/60 overflow-hidden shrink-0
-          ${isCenter ? 'w-11 h-11 text-base' : 'w-8 h-8 text-xs'}
+          ${isCenter ? 'w-9 h-9 sm:w-11 sm:h-11 text-base' : 'w-6 h-6 sm:w-8 sm:h-8 text-xs'}
         `}>
           {hasPhoto ? (
             <img src={person.photos[0]} alt={person.firstName} className="w-full h-full object-cover" />
@@ -61,12 +50,12 @@ export function PersonCard({ person, isCenter, onNavigate, onShowInfo }: Props) 
 
         {/* Name */}
         <div className="text-center leading-tight">
-          <div className={`font-serif font-semibold text-text-primary ${isCenter ? 'text-sm' : 'text-xs'}`}>
+          <div className={`font-serif font-semibold text-text-primary truncate ${isCenter ? 'text-sm' : 'text-xs'}`}>
             {person.firstName}
           </div>
           <div className={`font-serif text-text-secondary ${isCenter ? 'text-xs' : 'text-[10px]'}`}>
             {person.lastName}
-            {person.birthName && (
+            {isCenter && person.birthName && (
               <span className="text-text-secondary/70"> (f. {person.birthName})</span>
             )}
           </div>
@@ -78,35 +67,19 @@ export function PersonCard({ person, isCenter, onNavigate, onShowInfo }: Props) 
         </div>
       </div>
 
-      {/* Action buttons overlay — shown on hover/touch */}
-      {showActions && !isCenter && (
-        <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 flex gap-1 z-10 animate-in whitespace-nowrap">
-          {onNavigate && (
-            <button
-              onClick={(e) => { e.stopPropagation(); onNavigate() }}
-              className="bg-card-bg border border-card-border/60 rounded-full px-2 py-0.5 shadow-sm hover:bg-accent hover:text-white transition-colors cursor-pointer font-sans text-[10px] text-text-primary"
-            >
-              Centrera
-            </button>
-          )}
-          {onShowInfo && (
-            <button
-              onClick={(e) => { e.stopPropagation(); onShowInfo() }}
-              className="bg-card-bg border border-card-border/60 rounded-full px-2 py-0.5 shadow-sm hover:bg-accent hover:text-white transition-colors cursor-pointer font-sans text-[10px] text-text-primary"
-            >
-              Redigera
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Center card: edit button */}
-      {isCenter && onShowInfo && (
+      {/* Navigate chevron — non-center cards only */}
+      {!isCenter && onNavigate && (
         <button
-          onClick={(e) => { e.stopPropagation(); onShowInfo() }}
-          className="absolute -top-2 -right-2 bg-card-bg border border-card-border/60 rounded-full px-2 py-0.5 shadow-sm hover:bg-accent hover:text-white transition-colors cursor-pointer font-sans text-[10px] text-text-primary opacity-0 group-hover:opacity-100"
+          onClick={(e) => { e.stopPropagation(); onNavigate() }}
+          className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-card-bg border border-card-border/60
+                     flex items-center justify-center shadow-sm
+                     text-text-secondary text-[9px] font-sans leading-none
+                     opacity-40 sm:opacity-0 sm:group-hover:opacity-100
+                     hover:bg-accent hover:text-white hover:border-accent
+                     transition-all duration-150 cursor-pointer"
+          title="Centrera"
         >
-          Redigera
+          &rsaquo;
         </button>
       )}
     </div>

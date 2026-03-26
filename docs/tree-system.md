@@ -106,10 +106,28 @@ Connector-data kommer direkt från `PositionedFamilyConnectorV3` i layoutresulta
 
 ## Personinteraktion (modal-baserad)
 
-Klick på ett PersonCardMini-kort i trädet öppnar en centrerad modal (PersonModal) som visar all personinfo. Modalen har tre lägen:
+### Interaktionsmodell (FocusedTreeView)
 
-1. **Visning**: Foto/initialer, namn, födelse/dödsinfo, yrke, berättelser, kontaktinfo.
-2. **Redigering**: Alla fält blir redigerbara inline.
+**Alla kort:** Tap öppnar PersonModal (info-vy). Enhetligt beteende oavsett center/non-center.
+
+**Navigering/centrering:** Liten chevron-ikon (›) i övre högra hörnet på non-center kort. Synlig med `opacity-40` på mobil, `opacity-0 → group-hover:opacity-100` på desktop.
+
+**Modal på mobil:** Bottom sheet som glider upp från botten (`animate-slide-up`). Drag handle (grå pille) ovanför innehållet. Swipe ner (>100px) stänger. På desktop: centrerad dialog som tidigare.
+
+### PersonModal — två lägen
+
+1. **Info med inline-redigering** (standard):
+   - Header med foto/initialer, namn, livstid, relationstyp + penna-ikon.
+   - `EditableDetailRow`-fält: tap för att redigera enskilt fält (autofocus, blur/Enter sparar lokalt).
+   - Tomma fält visar "+ Lägg till" i accent-färg.
+   - **Auto-save:** `dirty`-flagga spårar ändringar. Vid stängning anropas `onSave(formState)` automatiskt.
+   - Footer: "Lägg till släkting" + "Visa i trädet" (non-center).
+
+2. **Full redigering** (penna-ikon):
+   - Alla fält som inputs (inkl. namn med NameSuggestInput).
+   - Foto-upload, övrig information (stories), radera person.
+   - Explicit "Spara"/"Avbryt"/"Ta bort" i footer.
+
 3. **Lägg till släkting**: Öppnar AddRelativeModal med relationstypväljare.
 
 ## Fade-in-animation

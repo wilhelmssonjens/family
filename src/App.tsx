@@ -23,6 +23,7 @@ const REQUIRE_APPROVAL = false
  */
 function FamilyPage({ view }: { view: 'focused' | 'tree' }) {
   const { id } = useParams()
+  const navigate = useNavigate()
   const { persons, relationships, loading, error, updatePerson, removePerson, addPerson, addRelationships } = useFamilyData()
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null)
   const [showAddRelative, setShowAddRelative] = useState(false)
@@ -217,6 +218,10 @@ function FamilyPage({ view }: { view: 'focused' | 'tree' }) {
           onSave={handleEditSave}
           onDelete={handleDelete}
           onAddRelative={() => setShowAddRelative(true)}
+          onNavigate={selectedPersonId !== centerId ? () => {
+            setSelectedPersonId(null)
+            navigate(`/person/${selectedPersonId}`)
+          } : undefined}
         />
       )}
 

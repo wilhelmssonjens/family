@@ -36,7 +36,10 @@
 ## Mobilanpassning
 - Responsiv layout: alla vyer ska fungera på skärmar ner till 320px bredd
 - Touch-gester: pinch-to-zoom och drag-to-pan i trädvyn via d3-zoom
-- `@media (pointer: coarse)` för touch-specifik stil (t.ex. "+"-knappar visas vid tap)
+- Modal → bottom sheet på mobil (`items-end`, `rounded-t-2xl`, `animate-slide-up`), centrerad dialog på desktop (`sm:items-center`, `sm:rounded-xl`)
+- Swipe-to-dismiss på bottom sheet (drag ner >100px stänger)
+- PersonCard: kompakta dimensioner på mobil (`w-28 sm:w-36`), full storlek på desktop
+- Tap = visa info (alla kort), chevron-ikon för navigering/centrering
 - Tailwind breakpoints: `sm:` (640px), `md:` (768px) — mobile-first
 - `touch-action: none` på SVG för att förhindra browser-zoom-konflikter
 - Testa alltid med Chrome DevTools mobile-emulering

@@ -148,7 +148,7 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
 
           return (
             <div key={`anc-${i}`} className="flex flex-col items-center gap-1">
-              {i > 0 && <div className="w-px h-4 bg-card-border/30" />}
+              {i > 0 && <div className="w-px h-2 sm:h-4 bg-card-border/30" />}
               <div className="flex items-center gap-8">
                 {patCouple && (
                   <CoupleRow
@@ -173,7 +173,7 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
         {/* Parents row (direct parents, no siblings) */}
         {parentPairs.length > 0 && (
           <>
-            <div className="w-px h-4 bg-card-border/30" />
+            <div className="w-px h-2 sm:h-4 bg-card-border/30" />
             <div className="flex items-center gap-8">
               {parentPairs.map((pp) => (
                 <CoupleRow
@@ -188,10 +188,10 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
         )}
 
         {/* Connector to center */}
-        {parents.length > 0 && <div className="w-px h-5 bg-card-border/40" />}
+        {parents.length > 0 && <div className="w-px h-3 sm:h-5 bg-card-border/40" />}
 
         {/* === CENTER ROW (with siblings) === */}
-        <div className="flex items-center gap-2 sm:gap-3 flex-wrap justify-center">
+        <div className="flex items-center gap-1.5 sm:gap-3 flex-wrap justify-center">
           {siblings.map(sib => (
             <PersonCard key={sib.id} person={sib} onNavigate={() => handleNav(sib.id)} onShowInfo={() => onPersonClick(sib.id)} />
           ))}
@@ -229,8 +229,8 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
         {/* === DESCENDANTS (center's children + grandchildren) === */}
         {descendantGens.map((gen, genIdx) => (
           <div key={`desc-${genIdx}`} className="flex flex-col items-center gap-1">
-            <div className="w-px h-5 bg-card-border/40" />
-            <div className="flex items-center gap-2 sm:gap-3 flex-wrap justify-center">
+            <div className="w-px h-3 sm:h-5 bg-card-border/40" />
+            <div className="flex items-center gap-1.5 sm:gap-3 flex-wrap justify-center">
               {gen.map(child => (
                 <PersonCard key={child.id} person={child} onNavigate={() => handleNav(child.id)} onShowInfo={() => onPersonClick(child.id)} />
               ))}

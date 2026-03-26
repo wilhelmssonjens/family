@@ -394,5 +394,15 @@
     "type": "parent",
     "from": "christina-ahlbck",
     "to": "tor-ahlbck"
+  },
+  {
+    "type": "parent",
+    "from": "pergunnar-ahlbck",
+    "to": "sven-ahlbck"
+  },
+  {
+    "type": "parent",
+    "from": "christina-ahlbck",
+    "to": "sven-ahlbck"
   }
 ]

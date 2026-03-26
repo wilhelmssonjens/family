@@ -92,7 +92,9 @@
     "deathPlace": null,
     "gender": "male",
     "occupation": null,
-    "photos": [],
+    "photos": [
+      "https://qqy1aaclajdyfn41.public.blob.vercel-storage.com/photos/img-9399-1774537781982.jpg"
+    ],
     "stories": [],
     "contactInfo": null,
     "familySide": "jens"

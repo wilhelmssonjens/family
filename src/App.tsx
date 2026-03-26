@@ -188,7 +188,7 @@ function FamilyPage({ view }: { view: 'focused' | 'tree' }) {
   }
 
   return (
-    <div className="flex-1 relative overflow-hidden">
+    <div className={`flex-1 relative ${view === 'focused' ? 'overflow-auto' : 'overflow-hidden'}`}>
       {view === 'focused' ? (
         <FocusedTreeView
           persons={persons}

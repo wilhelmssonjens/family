@@ -137,8 +137,7 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
   }
 
   return (
-    <div className="flex-1 overflow-auto">
-      <div className="flex flex-col items-center gap-1 py-6 px-4 min-h-full">
+    <div className="flex flex-col items-center gap-1 py-10 pb-20 px-4">
 
         {/* === ANCESTORS (slim: just couples, no siblings) === */}
         {Array.from({ length: maxChainLen }).map((_, i) => {
@@ -260,7 +259,6 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
             Klicka på {center.firstName} för att lägga till familjemedlemmar.
           </p>
         )}
-      </div>
     </div>
   )
 }

@@ -1125,5 +1125,26 @@
     "stories": [],
     "contactInfo": null,
     "familySide": "jens"
+  },
+  {
+    "id": "edit-andersson",
+    "firstName": "Edit",
+    "lastName": "Andersson",
+    "birthName": null,
+    "birthDate": null,
+    "birthPlace": null,
+    "deathDate": "1967",
+    "deathPlace": "Malmö",
+    "gender": "female",
+    "occupation": null,
+    "photos": [],
+    "stories": [
+      {
+        "title": "Berättelse",
+        "text": "Gillade att måla porslin"
+      }
+    ],
+    "contactInfo": null,
+    "familySide": "jens"
   }
 ]

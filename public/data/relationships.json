@@ -426,5 +426,10 @@
     "from": "ingrid-muhr",
     "to": "uno-muhr",
     "status": "current"
+  },
+  {
+    "type": "parent",
+    "from": "ingrid-muhr",
+    "to": "christer-muhr"
   }
 ]

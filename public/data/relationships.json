@@ -436,5 +436,10 @@
     "type": "parent",
     "from": "ragnar-andersson",
     "to": "peter-andersson"
+  },
+  {
+    "type": "parent",
+    "from": "olle-andersson",
+    "to": "katarina-andersson"
   }
 ]

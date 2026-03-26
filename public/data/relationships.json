@@ -369,5 +369,10 @@
     "from": "birgit-oleskog",
     "to": "lennart-oleskog",
     "status": "current"
+  },
+  {
+    "type": "parent",
+    "from": "birgit-oleskog",
+    "to": "gran-oleskog"
   }
 ]

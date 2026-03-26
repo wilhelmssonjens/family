@@ -608,5 +608,21 @@
     "stories": [],
     "contactInfo": null,
     "familySide": "center"
+  },
+  {
+    "id": "gustaf-andersson",
+    "firstName": "Gustaf",
+    "lastName": "Andersson",
+    "birthName": null,
+    "birthDate": null,
+    "birthPlace": null,
+    "deathDate": "1940",
+    "deathPlace": null,
+    "gender": "male",
+    "occupation": null,
+    "photos": [],
+    "stories": [],
+    "contactInfo": null,
+    "familySide": "jens"
   }
 ]

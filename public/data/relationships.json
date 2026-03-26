@@ -295,5 +295,10 @@
     "type": "parent",
     "from": "jens",
     "to": "sune-ahlbck"
+  },
+  {
+    "type": "parent",
+    "from": "klara",
+    "to": "sune-ahlbck"
   }
 ]

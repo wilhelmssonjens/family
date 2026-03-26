@@ -106,11 +106,30 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
   const pinchRef = useRef<{ startDist: number; startZoom: number } | null>(null)
   zoomRef.current = zoom
 
-  // Pinch-to-zoom + Ctrl+wheel zoom via native listeners (passive: false for preventDefault)
+  // Pinch-to-zoom (Safari gesture events + Android touch events) + Ctrl+wheel
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
 
+    // Safari: gesturestart/gesturechange (works reliably for pinch on iOS)
+    let gestureStartZoom = 1
+
+    function onGestureStart(e: Event) {
+      e.preventDefault()
+      gestureStartZoom = zoomRef.current
+    }
+
+    function onGestureChange(e: Event) {
+      e.preventDefault()
+      const ge = e as Event & { scale: number }
+      setZoom(clamp(gestureStartZoom * ge.scale, MIN_ZOOM, MAX_ZOOM))
+    }
+
+    function onGestureEnd(e: Event) {
+      e.preventDefault()
+    }
+
+    // Android/Chrome: standard touch events for two-finger pinch
     function onTouchStart(e: TouchEvent) {
       if (e.touches.length === 2) {
         e.preventDefault()
@@ -134,6 +153,7 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
       pinchRef.current = null
     }
 
+    // Desktop: Ctrl+wheel / trackpad pinch
     function onWheel(e: WheelEvent) {
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault()
@@ -141,12 +161,21 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
       }
     }
 
+    // Safari gesture events
+    el.addEventListener('gesturestart', onGestureStart, { passive: false })
+    el.addEventListener('gesturechange', onGestureChange, { passive: false })
+    el.addEventListener('gestureend', onGestureEnd, { passive: false })
+    // Android touch events
     el.addEventListener('touchstart', onTouchStart, { passive: false })
     el.addEventListener('touchmove', onTouchMove, { passive: false })
     el.addEventListener('touchend', onTouchEnd)
+    // Desktop wheel
     el.addEventListener('wheel', onWheel, { passive: false })
 
     return () => {
+      el.removeEventListener('gesturestart', onGestureStart)
+      el.removeEventListener('gesturechange', onGestureChange)
+      el.removeEventListener('gestureend', onGestureEnd)
       el.removeEventListener('touchstart', onTouchStart)
       el.removeEventListener('touchmove', onTouchMove)
       el.removeEventListener('touchend', onTouchEnd)
@@ -212,7 +241,7 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
     <div ref={containerRef} className="relative" style={{ touchAction: 'pan-x pan-y' }}>
       <div
         className="flex flex-col items-center gap-1 py-10 pb-20 px-4 min-w-fit"
-        style={{ zoom }}
+        style={zoom !== 1 ? { transform: `scale(${zoom})`, transformOrigin: 'center top' } : undefined}
       >
 
         {/* === ANCESTORS (slim: just couples, no siblings) === */}
@@ -338,21 +367,21 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
       </div>
 
       {/* Zoom controls */}
-      <div className="fixed bottom-20 sm:bottom-6 right-3 flex flex-col gap-1.5 z-40">
+      <div className="fixed bottom-20 sm:bottom-6 right-3 flex flex-col gap-2 z-40">
         <button
           onClick={zoomIn}
-          className="w-9 h-9 rounded-full bg-card-bg/90 border border-card-border/40 shadow-md
-                     flex items-center justify-center text-text-primary font-sans text-base
-                     hover:bg-accent hover:text-white active:scale-95 transition-all"
+          className="w-10 h-10 rounded-full bg-card-bg border border-card-border/40 shadow-md
+                     flex items-center justify-center text-text-primary font-sans text-lg
+                     hover:bg-accent hover:text-white active:scale-90 transition-all cursor-pointer"
           aria-label="Zooma in"
         >
           +
         </button>
         <button
           onClick={zoomOut}
-          className="w-9 h-9 rounded-full bg-card-bg/90 border border-card-border/40 shadow-md
-                     flex items-center justify-center text-text-primary font-sans text-base
-                     hover:bg-accent hover:text-white active:scale-95 transition-all"
+          className="w-10 h-10 rounded-full bg-card-bg border border-card-border/40 shadow-md
+                     flex items-center justify-center text-text-primary font-sans text-lg
+                     hover:bg-accent hover:text-white active:scale-90 transition-all cursor-pointer"
           aria-label="Zooma ut"
         >
           &minus;
@@ -360,12 +389,12 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
         {zoom !== 1 && (
           <button
             onClick={zoomReset}
-            className="w-9 h-9 rounded-full bg-card-bg/90 border border-card-border/40 shadow-md
+            className="w-10 h-10 rounded-full bg-card-bg border border-card-border/40 shadow-md
                        flex items-center justify-center text-text-secondary font-sans text-[10px]
-                       hover:bg-accent hover:text-white active:scale-95 transition-all"
+                       hover:bg-accent hover:text-white active:scale-90 transition-all cursor-pointer"
             aria-label="Återställ zoom"
           >
-            1:1
+            {Math.round(zoom * 100)}%
           </button>
         )}
       </div>

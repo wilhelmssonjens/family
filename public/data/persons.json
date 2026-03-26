@@ -810,5 +810,21 @@
     "stories": [],
     "contactInfo": null,
     "familySide": "center"
+  },
+  {
+    "id": "ylva-oleskog",
+    "firstName": "Ylva",
+    "lastName": "Oleskog",
+    "birthName": null,
+    "birthDate": "19580904",
+    "birthPlace": "Växjö",
+    "deathDate": null,
+    "deathPlace": null,
+    "gender": "female",
+    "occupation": "Biomedicinsk analytiker",
+    "photos": [],
+    "stories": [],
+    "contactInfo": null,
+    "familySide": "center"
   }
 ]

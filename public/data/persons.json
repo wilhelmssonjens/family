@@ -640,5 +640,26 @@
     "stories": [],
     "contactInfo": null,
     "familySide": "jens"
+  },
+  {
+    "id": "ragnar-andersson",
+    "firstName": "Ragnar",
+    "lastName": "Andersson",
+    "birthName": null,
+    "birthDate": "1928",
+    "birthPlace": null,
+    "deathDate": null,
+    "deathPlace": "Göteborg",
+    "gender": "male",
+    "occupation": null,
+    "photos": [],
+    "stories": [
+      {
+        "title": "Berättelse",
+        "text": "Bergsprängare?"
+      }
+    ],
+    "contactInfo": null,
+    "familySide": "jens"
   }
 ]

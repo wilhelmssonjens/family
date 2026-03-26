@@ -300,5 +300,10 @@
     "type": "parent",
     "from": "klara",
     "to": "sune-ahlbck"
+  },
+  {
+    "type": "parent",
+    "from": "gustaf-andersson",
+    "to": "barbro"
   }
 ]

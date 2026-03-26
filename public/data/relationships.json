@@ -496,5 +496,11 @@
     "type": "parent",
     "from": "oknd-andersson",
     "to": "tyra-wilhelmsson"
+  },
+  {
+    "type": "partner",
+    "from": "karin-wernmark",
+    "to": "bjrn-wernmark",
+    "status": "current"
   }
 ]

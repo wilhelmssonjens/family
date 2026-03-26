@@ -446,5 +446,10 @@
     "type": "parent",
     "from": "katarina-1774535872825",
     "to": "alexander-andersson"
+  },
+  {
+    "type": "parent",
+    "from": "ingrid-muhr",
+    "to": "hkan-muhr"
   }
 ]

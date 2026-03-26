@@ -310,5 +310,11 @@
     "type": "parent",
     "from": "brita-andersson",
     "to": "barbro"
+  },
+  {
+    "type": "partner",
+    "from": "brita-andersson",
+    "to": "gustaf-andersson",
+    "status": "current"
   }
 ]

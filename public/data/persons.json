@@ -938,5 +938,21 @@
     "stories": [],
     "contactInfo": null,
     "familySide": "jens"
+  },
+  {
+    "id": "alexander-andersson",
+    "firstName": "Alexander",
+    "lastName": "Andersson",
+    "birthName": null,
+    "birthDate": null,
+    "birthPlace": null,
+    "deathDate": null,
+    "deathPlace": null,
+    "gender": "male",
+    "occupation": null,
+    "photos": [],
+    "stories": [],
+    "contactInfo": null,
+    "familySide": "jens"
   }
 ]

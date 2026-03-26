@@ -922,5 +922,21 @@
     "stories": [],
     "contactInfo": null,
     "familySide": "jens"
+  },
+  {
+    "id": "katarina-andersson",
+    "firstName": "Katarina",
+    "lastName": "Andersson",
+    "birthName": null,
+    "birthDate": null,
+    "birthPlace": null,
+    "deathDate": null,
+    "deathPlace": null,
+    "gender": "female",
+    "occupation": null,
+    "photos": [],
+    "stories": [],
+    "contactInfo": null,
+    "familySide": "jens"
   }
 ]

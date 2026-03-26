@@ -202,7 +202,7 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
             {partners.map(p => (
               <div key={p.id} className="flex items-center gap-2">
                 <span className="text-accent font-sans text-lg font-light">+</span>
-                <PersonCard person={p} isCenter onShowInfo={() => onPersonClick(p.id)} />
+                <PersonCard person={p} onNavigate={() => handleNav(p.id)} onShowInfo={() => onPersonClick(p.id)} />
               </div>
             ))}
           </div>

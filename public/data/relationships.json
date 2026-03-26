@@ -455,5 +455,10 @@
     "type": "sibling",
     "from": "konrad",
     "to": "august-andersson"
+  },
+  {
+    "type": "parent",
+    "from": "oknd-andersson",
+    "to": "konrad"
   }
 ]

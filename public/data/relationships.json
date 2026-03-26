@@ -358,5 +358,10 @@
     "from": "pergunnar-ahlbck",
     "to": "christina-ahlbck",
     "status": "current"
+  },
+  {
+    "type": "parent",
+    "from": "birgit-oleskog",
+    "to": "lena-ahlbck"
   }
 ]

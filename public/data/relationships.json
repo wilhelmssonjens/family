@@ -316,5 +316,15 @@
     "from": "brita-andersson",
     "to": "gustaf-andersson",
     "status": "current"
+  },
+  {
+    "type": "parent",
+    "from": "gustaf-andersson",
+    "to": "ragnar-andersson"
+  },
+  {
+    "type": "parent",
+    "from": "brita-andersson",
+    "to": "ragnar-andersson"
   }
 ]

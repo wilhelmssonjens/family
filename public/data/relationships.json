@@ -336,5 +336,11 @@
     "type": "parent",
     "from": "brita-andersson",
     "to": "olle-andersson"
+  },
+  {
+    "type": "partner",
+    "from": "brita-andersson",
+    "to": "mindolf-olsson",
+    "status": "current"
   }
 ]

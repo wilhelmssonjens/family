@@ -305,5 +305,10 @@
     "type": "parent",
     "from": "gustaf-andersson",
     "to": "barbro"
+  },
+  {
+    "type": "parent",
+    "from": "brita-andersson",
+    "to": "barbro"
   }
 ]

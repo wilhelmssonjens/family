@@ -491,5 +491,10 @@
     "from": "konrad",
     "to": "tyra-wilhelmsson",
     "status": "current"
+  },
+  {
+    "type": "parent",
+    "from": "oknd-andersson",
+    "to": "tyra-wilhelmsson"
   }
 ]

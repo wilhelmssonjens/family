@@ -1007,5 +1007,26 @@
     ],
     "contactInfo": null,
     "familySide": "jens"
+  },
+  {
+    "id": "august-andersson",
+    "firstName": "August",
+    "lastName": "Andersson",
+    "birthName": null,
+    "birthDate": null,
+    "birthPlace": null,
+    "deathDate": null,
+    "deathPlace": null,
+    "gender": "male",
+    "occupation": "Skräddare",
+    "photos": [],
+    "stories": [
+      {
+        "title": "Berättelse",
+        "text": "Gävle"
+      }
+    ],
+    "contactInfo": null,
+    "familySide": "jens"
   }
 ]

@@ -794,5 +794,21 @@
     "stories": [],
     "contactInfo": null,
     "familySide": "center"
+  },
+  {
+    "id": "henrik-oleskog",
+    "firstName": "Henrik",
+    "lastName": "Oleskog",
+    "birthName": null,
+    "birthDate": "1956",
+    "birthPlace": "Växjö",
+    "deathDate": null,
+    "deathPlace": null,
+    "gender": "male",
+    "occupation": null,
+    "photos": [],
+    "stories": [],
+    "contactInfo": null,
+    "familySide": "center"
   }
 ]

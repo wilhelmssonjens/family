@@ -431,5 +431,10 @@
     "type": "parent",
     "from": "ingrid-muhr",
     "to": "christer-muhr"
+  },
+  {
+    "type": "parent",
+    "from": "ragnar-andersson",
+    "to": "peter-andersson"
   }
 ]

@@ -1070,5 +1070,26 @@
     "stories": [],
     "contactInfo": null,
     "familySide": "jens"
+  },
+  {
+    "id": "brje-norstrm",
+    "firstName": "Börje",
+    "lastName": "Norström",
+    "birthName": null,
+    "birthDate": null,
+    "birthPlace": null,
+    "deathDate": null,
+    "deathPlace": null,
+    "gender": "male",
+    "occupation": null,
+    "photos": [],
+    "stories": [
+      {
+        "title": "Berättelse",
+        "text": "Spelman"
+      }
+    ],
+    "contactInfo": null,
+    "familySide": "jens"
   }
 ]

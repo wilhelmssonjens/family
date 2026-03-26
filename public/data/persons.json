@@ -661,5 +661,26 @@
     ],
     "contactInfo": null,
     "familySide": "jens"
+  },
+  {
+    "id": "olle-andersson",
+    "firstName": "Olle",
+    "lastName": "Andersson",
+    "birthName": null,
+    "birthDate": "1930",
+    "birthPlace": null,
+    "deathDate": null,
+    "deathPlace": null,
+    "gender": "male",
+    "occupation": null,
+    "photos": [],
+    "stories": [
+      {
+        "title": "Berättelse",
+        "text": "Glasmästare, OA glas i Hofors"
+      }
+    ],
+    "contactInfo": null,
+    "familySide": "jens"
   }
 ]

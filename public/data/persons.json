@@ -698,5 +698,21 @@
     "stories": [],
     "contactInfo": null,
     "familySide": "jens"
+  },
+  {
+    "id": "yngve-olsson",
+    "firstName": "Yngve",
+    "lastName": "Olsson",
+    "birthName": null,
+    "birthDate": "1944",
+    "birthPlace": null,
+    "deathDate": null,
+    "deathPlace": "Örebro",
+    "gender": "male",
+    "occupation": "Sjöman",
+    "photos": [],
+    "stories": [],
+    "contactInfo": null,
+    "familySide": "jens"
   }
 ]

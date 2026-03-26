@@ -1091,5 +1091,21 @@
     ],
     "contactInfo": null,
     "familySide": "jens"
+  },
+  {
+    "id": "pernilla-bjrk",
+    "firstName": "Pernilla",
+    "lastName": "Björk",
+    "birthName": "Ahlbäck",
+    "birthDate": null,
+    "birthPlace": "Morkarla",
+    "deathDate": null,
+    "deathPlace": null,
+    "gender": "female",
+    "occupation": null,
+    "photos": [],
+    "stories": [],
+    "contactInfo": null,
+    "familySide": "center"
   }
 ]

@@ -480,5 +480,10 @@
     "type": "parent",
     "from": "christina-ahlbck",
     "to": "pernilla-bjrk"
+  },
+  {
+    "type": "parent",
+    "from": "tyra-wilhelmsson",
+    "to": "gunnar-w"
   }
 ]

@@ -24,12 +24,6 @@
     "status": "current"
   },
   {
-    "type": "partner",
-    "from": "konrad",
-    "to": "augusta",
-    "status": "current"
-  },
-  {
     "type": "parent",
     "from": "per",
     "to": "jens"
@@ -92,11 +86,6 @@
   {
     "type": "parent",
     "from": "konrad",
-    "to": "gunnar-w"
-  },
-  {
-    "type": "parent",
-    "from": "augusta",
     "to": "gunnar-w"
   },
   {

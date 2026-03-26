@@ -452,13 +452,8 @@
     "to": "annika-andersson"
   },
   {
-    "type": "parent",
-    "from": "parent-of-konrad",
-    "to": "konrad"
-  },
-  {
-    "type": "parent",
-    "from": "parent-of-konrad",
+    "type": "sibling",
+    "from": "konrad",
     "to": "august-andersson"
   }
 ]

@@ -21,7 +21,7 @@ export interface Story {
 }
 
 export interface Relationship {
-  type: 'partner' | 'parent'
+  type: 'partner' | 'parent' | 'sibling'
   from: string
   to: string
   status?: 'current' | 'former'

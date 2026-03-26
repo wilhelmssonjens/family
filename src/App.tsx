@@ -120,24 +120,8 @@ function FamilyPage({ view }: { view: 'focused' | 'tree' }) {
           for (const pr of parentRels) {
             newRels.push({ type: 'parent', from: pr.from, to: data.existingPersonId })
           }
-        } else {
-          // No parents — create placeholder parent for sibling link
-          const placeholderParentId = 'parent-of-' + anchorId + '-' + Date.now()
-          const placeholderParent: Person = {
-            id: placeholderParentId,
-            firstName: 'Okänd',
-            lastName: '',
-            birthName: null, birthDate: null, birthPlace: null,
-            deathDate: null, deathPlace: null,
-            gender: 'male',
-            occupation: null, photos: [], stories: [],
-            contactInfo: null,
-            familySide: anchorFamilySide,
-          }
-          addPerson(placeholderParent, [])
-          newRels.push({ type: 'parent', from: placeholderParentId, to: anchorId })
-          newRels.push({ type: 'parent', from: placeholderParentId, to: data.existingPersonId })
         }
+        newRels.push({ type: 'sibling', from: anchorId, to: data.existingPersonId })
       }
       addRelationships(newRels)
 
@@ -187,25 +171,9 @@ function FamilyPage({ view }: { view: 'focused' | 'tree' }) {
           for (const pr of parentRels) {
             newRels.push({ type: 'parent', from: pr.from, to: tempId })
           }
-        } else {
-          // Anchor has no parents — create a placeholder parent so they
-          // share a family link and show up as siblings in the tree
-          const placeholderParentId = 'parent-of-' + anchorId + '-' + Date.now()
-          const placeholderParent: Person = {
-            id: placeholderParentId,
-            firstName: 'Okänd',
-            lastName: newPerson.lastName,
-            birthName: null, birthDate: null, birthPlace: null,
-            deathDate: null, deathPlace: null,
-            gender: 'male',
-            occupation: null, photos: [], stories: [],
-            contactInfo: null,
-            familySide: anchorFamilySide,
-          }
-          addPerson(placeholderParent, [])
-          newRels.push({ type: 'parent', from: placeholderParentId, to: anchorId })
-          newRels.push({ type: 'parent', from: placeholderParentId, to: tempId })
         }
+        // Always add direct sibling relation (works even without parents)
+        newRels.push({ type: 'sibling', from: anchorId, to: tempId })
       }
       addPerson(newPerson, newRels)
 

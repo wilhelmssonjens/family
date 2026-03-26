@@ -5,6 +5,7 @@ export interface FamilyNode {
   parentIds: string[]
   childIds: string[]
   partnerIds: string[]
+  directSiblingIds: string[]
 }
 
 export type FamilyGraph = Map<string, FamilyNode>
@@ -18,6 +19,7 @@ export function buildFamilyGraph(persons: Person[], relationships: Relationship[
       parentIds: [],
       childIds: [],
       partnerIds: [],
+      directSiblingIds: [],
     })
   }
 
@@ -32,6 +34,9 @@ export function buildFamilyGraph(persons: Person[], relationships: Relationship[
     } else if (rel.type === 'partner') {
       fromNode.partnerIds.push(rel.to)
       toNode.partnerIds.push(rel.from)
+    } else if (rel.type === 'sibling') {
+      fromNode.directSiblingIds.push(rel.to)
+      toNode.directSiblingIds.push(rel.from)
     }
   }
 
@@ -59,12 +64,19 @@ export function getSiblings(graph: FamilyGraph, personId: string): Person[] {
   if (!node) return []
 
   const siblingIds = new Set<string>()
+
+  // Siblings via shared parents
   for (const parentId of node.parentIds) {
     const parent = graph.get(parentId)
     if (!parent) continue
     for (const childId of parent.childIds) {
       if (childId !== personId) siblingIds.add(childId)
     }
+  }
+
+  // Direct sibling relations (for persons without shared parents)
+  for (const sibId of node.directSiblingIds) {
+    siblingIds.add(sibId)
   }
 
   return Array.from(siblingIds)

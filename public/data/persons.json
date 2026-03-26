@@ -986,5 +986,26 @@
     "stories": [],
     "contactInfo": null,
     "familySide": "jens"
+  },
+  {
+    "id": "annika-andersson",
+    "firstName": "Annika",
+    "lastName": "Andersson",
+    "birthName": null,
+    "birthDate": "1956",
+    "birthPlace": null,
+    "deathDate": null,
+    "deathPlace": null,
+    "gender": "female",
+    "occupation": null,
+    "photos": [],
+    "stories": [
+      {
+        "title": "Berättelse",
+        "text": "Hedesunda"
+      }
+    ],
+    "contactInfo": null,
+    "familySide": "jens"
   }
 ]

@@ -57,9 +57,21 @@ Bottom-up mätning. Returnerar tre maps: `familyWidths`, `personWidths`, `ancest
 
 ### 5. Placement (placeLayout.ts)
 - `placeFamilyV3()` — placerar familjeblock: föräldrar centrerade, barn distribuerade under
-- `placeAncestorsV3()` — expanderar ancestors vänster/höger med riktningsalternering
-- Skapar `VisualPersonNode` med unikt `visualId` (format: `p:${personId}@f:${familyId}:${role}`)
+- `placeAncestorsV3()` — expanderar ancestors i **samma riktning** som föräldranoden (vänster för Jens-sidan, höger för Klaras)
+- Skapar `VisualPersonNode` med unikt `visualId` (format: `p:${personId}@f:${familyId}:${role}`) och `branch` (`left`/`center`/`right`)
 - Familjenivå-dedup (inte personnivå) — samma person kan placeras i flera familjekontexter
+- **Fast partnerGap** — branch-resolvern hanterar överlapp
+
+### 5b. resolveFamilyGrouping (placeLayout.ts)
+Per y-nivå: grupperar syskon med samma födelsefamilj och säkerställer att varje grupp är sammanhängande. Förhindrar att t.ex. Gunnars barn (Per, Birgitta, Mats) blandas med Lennarts barn (Laila, Arne, Inger). Opererar per rad utan descendant-propagering.
+
+### 5c. resolveRowOverlaps (placeLayout.ts)
+Branch-medveten post-processing. Varje visuell nod taggas med en `branch` (`'left'` | `'center'` | `'right'`) baserat på vilken ancestorkedja den placerades under:
+- `left`: Jens ancestors (steg 10)
+- `center`: Centerparet + deras gemensamma barn (steg 8-9)
+- `right`: Klaras ancestors (steg 11)
+
+Resolvern säkerställer att right-branch noder aldrig interfolieras med left/center-noder. Left+center behåller sina positioner, right-gruppen skjuts åt höger om den överlappar. Extra 40px gap vid branch-gräns. Samma person med dubbla instanser behålls på samma x.
 
 ### 6. validateLayoutResult (validateLayout.ts)
 Kontrollerar: inga duplicerade visualIds, finite x/y, giltiga connector-referenser, inga överlapp. Kastar Error i dev/test, console.warn i prod.
@@ -78,6 +90,7 @@ Alla kopplingar ritas med **orthogonala (rätvinkliga) linjer** — inga diagona
 - **Partner-kopplingar**: Streckade linjer (`#c4a77d`) med 90-graders armbågar
 - **Förälder-barn**: SVG `<path>` med vertikala och horisontella segment
 - **Bracket-grupper** (flera barn): Vertikal linje → horisontell spännlinje → vertikala linjer ner
+- **Linje-separation**: Familjer med samma parentY/childY får stegvis y-offset (6px per familj) för att undvika att horisontella bracket-linjer överlappar varandra
 
 Connector-data kommer direkt från `PositionedFamilyConnectorV3` i layoutresultatet — TreeView rekonstruerar aldrig familjer.
 
@@ -107,7 +120,7 @@ Nyligen tillagda personer animeras in med en 0.5s `fadeIn`-animation (scale 0.85
 
 | Fil | Tester | Ansvar |
 |-----|--------|--------|
-| `computeTreeLayoutV3.test.ts` | 22 | Integration: center, ancestors, overlaps, multi-partner, half-siblings |
+| `computeTreeLayoutV3.test.ts` | 27 | Integration: center, ancestors, overlaps, multi-partner, half-siblings, partner-gap, layout-width, branch-separation |
 | `assignGenerations.test.ts` | 10 | BFS-generationer, getGeneration |
 | `measureLayout.test.ts` | 13 | Familjemätning, multi-familj summa, ordningsoberoende |
 | `familySelection.test.ts` | 10 | pickCenterFamily, pickPrimaryBirthFamily |

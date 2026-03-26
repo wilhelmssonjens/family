@@ -4,10 +4,162 @@ import type {
   VisualPersonNode,
   PositionedFamilyConnectorV3,
   LayoutConfig,
+  LayoutBranch,
 } from '../../types'
 import type { GenerationTable } from './assignGenerations'
 import { pickPrimaryBirthFamily } from './familySelection'
 import type { MeasureResult } from './measureLayout'
+
+// --- Post-processing: resolve row overlaps ---
+
+// --- Post-processing: family grouping (subtree-aware) ---
+
+/**
+ * Ensure siblings from the same birth family are contiguous on each row.
+ * Operates per y-level independently — no descendant propagation.
+ * The branch resolver handles remaining cross-level alignment.
+ */
+export function resolveFamilyGrouping(ctx: PlacementContextV3): void {
+  const minGap = ctx.config.cardWidth
+
+  // Collect all y-levels
+  const yLevels = new Set<number>()
+  for (const node of ctx.visualNodes.values()) yLevels.add(node.y)
+
+  for (const y of yLevels) {
+    // Find "child" nodes at this y-level, grouped by birth family
+    const childNodes = [...ctx.visualNodes.values()]
+      .filter(n => n.y === y && n.role === 'child')
+
+    // Group by familyId (birth family)
+    const familyGroups = new Map<string, VisualPersonNode[]>()
+    for (const n of childNodes) {
+      const list = familyGroups.get(n.familyId) ?? []
+      list.push(n)
+      familyGroups.set(n.familyId, list)
+    }
+
+    if (familyGroups.size < 2) continue
+
+    // Sort nodes within each group by x
+    for (const nodes of familyGroups.values()) {
+      nodes.sort((a, b) => a.x - b.x)
+    }
+
+    // Sort groups by leftmost node x
+    const sortedGroups = [...familyGroups.entries()]
+      .sort(([, a], [, b]) => a[0].x - b[0].x)
+
+    // Push groups apart where they overlap
+    for (let i = 1; i < sortedGroups.length; i++) {
+      const prevGroup = sortedGroups[i - 1][1]
+      const currGroup = sortedGroups[i][1]
+      const prevMax = prevGroup[prevGroup.length - 1].x
+      const currMin = currGroup[0].x
+      const gap = currMin - prevMax
+
+      if (gap < minGap) {
+        const shift = minGap - gap
+        // Shift this group and all subsequent groups (no descendants)
+        for (let j = i; j < sortedGroups.length; j++) {
+          for (const node of sortedGroups[j][1]) {
+            node.x += shift
+          }
+        }
+      }
+    }
+  }
+}
+
+/** Extra gap inserted between branches for visual clarity */
+const BRANCH_GAP = 40
+
+/**
+ * After all placement, ensure that right-branch nodes (partner's ancestors)
+ * never interleave with left/center nodes (center person's ancestors).
+ *
+ * Strategy:
+ * 1. Per y-level, split nodes into two groups: "main" (left + center) and "right"
+ * 2. Resolve internal overlaps within each group independently
+ * 3. Shift the entire right group so it starts after the main group + gap
+ *
+ * Left and center nodes keep their original positions (only pushed apart if
+ * they overlap each other). Right nodes are moved as a block.
+ *
+ * Modifies node positions in-place. Connectors reference VisualPersonNode
+ * objects, so they automatically pick up the updated positions.
+ */
+export function resolveRowOverlaps(ctx: PlacementContextV3): void {
+  const byY = new Map<number, VisualPersonNode[]>()
+  for (const node of ctx.visualNodes.values()) {
+    const list = byY.get(node.y) ?? []
+    list.push(node)
+    byY.set(node.y, list)
+  }
+
+  const minGap = ctx.config.cardWidth // 140px minimum between node centers
+
+  for (const [, nodes] of byY) {
+    if (nodes.length < 2) continue
+
+    // 1. Deduplicate same-person: align all instances to leftmost x
+    const personX = new Map<string, number>()
+    for (const n of nodes) {
+      const existing = personX.get(n.personId)
+      if (existing === undefined || n.x < existing) {
+        personX.set(n.personId, n.x)
+      }
+    }
+    for (const n of nodes) {
+      n.x = personX.get(n.personId) ?? n.x
+    }
+
+    // 2. Split into main (left + center) and right groups
+    const main = nodes.filter(n => n.branch !== 'right')
+    const right = nodes.filter(n => n.branch === 'right')
+
+    // 3. Resolve internal overlaps within main group
+    resolveGroupOverlaps(main, minGap)
+
+    // 4. Resolve internal overlaps within right group
+    resolveGroupOverlaps(right, minGap)
+
+    // 5. Ensure right group is entirely to the right of main group
+    if (main.length > 0 && right.length > 0) {
+      const maxMain = Math.max(...main.map(n => n.x))
+      const minRight = Math.min(...right.map(n => n.x))
+      const requiredGap = minGap + BRANCH_GAP
+
+      if (minRight - maxMain < requiredGap) {
+        const shift = requiredGap - (minRight - maxMain)
+        for (const n of right) {
+          n.x += shift
+        }
+      }
+    }
+  }
+}
+
+/** Resolve overlaps within a group of nodes, preserving relative order. */
+function resolveGroupOverlaps(nodes: VisualPersonNode[], minGap: number): void {
+  if (nodes.length < 2) return
+  nodes.sort((a, b) => a.x - b.x)
+
+  for (let i = 1; i < nodes.length; i++) {
+    // Same person at same y = same visual card
+    if (nodes[i].personId === nodes[i - 1].personId) {
+      nodes[i].x = nodes[i - 1].x
+      continue
+    }
+
+    const overlap = minGap - (nodes[i].x - nodes[i - 1].x)
+    if (overlap > 0) {
+      for (let j = i; j < nodes.length; j++) {
+        nodes[j].x += overlap
+      }
+    }
+  }
+}
 
 // --- Visual ID ---
 
@@ -29,6 +181,7 @@ export interface PlacementContextV3 {
   generations: GenerationTable
   measured: MeasureResult
   config: LayoutConfig
+  currentBranch: LayoutBranch
   // Output accumulators
   visualNodes: Map<string, VisualPersonNode>
   placedFamilies: Set<string>
@@ -63,6 +216,7 @@ export function placeVisualNode(
     y,
     width: ctx.config.cardWidth,
     height: ctx.config.cardHeight,
+    branch: ctx.currentBranch,
   }
 
   ctx.visualNodes.set(visualId, node)
@@ -96,6 +250,7 @@ export function placeFamilyV3(
   centerX: number,
   generation: number,
   ctx: PlacementContextV3,
+  childAnchorX?: number,
 ): void {
   if (ctx.placedFamilies.has(family.id)) return
   ctx.placedFamilies.add(family.id)
@@ -174,7 +329,7 @@ export function placeFamilyV3(
     familyId: family.id,
     parentVisualIds,
     childVisualIds,
-    centerX: actualCenterX,
+    centerX: childAnchorX ?? actualCenterX,
     parentY: y,
     childY,
   }
@@ -184,13 +339,16 @@ export function placeFamilyV3(
     return
   }
 
-  // Distribute children below
+  // Distribute children below.
+  // Use childAnchorX (if provided) to keep children centered within their
+  // allocated column, preventing sibling-group interleaving.
+  const childDistCenter = childAnchorX ?? actualCenterX
   const childWidths = family.childIds.map(
     id => ctx.measured.personWidths.get(id) ?? (ctx.config.cardWidth + ctx.config.cardMargin),
   )
   const totalWidth = childWidths.reduce((sum, w) => sum + w, 0)
     + ctx.config.childGap * (family.childIds.length - 1)
-  let cursor = actualCenterX - totalWidth / 2
+  let cursor = childDistCenter - totalWidth / 2
 
   for (let i = 0; i < family.childIds.length; i++) {
     const childId = family.childIds[i]
@@ -200,11 +358,12 @@ export function placeFamilyV3(
     const childNode = placeVisualNode(childId, family.id, 'child', childCenterX, childY, ctx)
     if (childNode) childVisualIds.push(childNode.visualId)
 
-    // Recursively place the child's own families (where they are a parent)
+    // Recursively place the child's own families (where they are a parent).
+    // Propagate childCenterX as anchor so grandchildren also stay in column.
     const childFamilies = ctx.familiesByParent.get(childId) ?? []
     for (const childFamily of childFamilies) {
       if (ctx.placedFamilies.has(childFamily.id)) continue
-      placeFamilyV3(childFamily, childCenterX, childGeneration, ctx)
+      placeFamilyV3(childFamily, childCenterX, childGeneration, ctx, childAnchorX != null ? childCenterX : undefined)
     }
 
     cursor += width + ctx.config.childGap
@@ -283,11 +442,12 @@ export function placeAncestorsV3(
     if (childNode) childVisualIds.push(childNode.visualId)
 
     if (childId !== personId) {
-      // Recursively place the sibling's own families (descendants)
+      // Recursively place the sibling's own families (descendants).
+      // Pass sibling's position as childAnchorX to keep descendants in column.
       const siblingFamilies = ctx.familiesByParent.get(childId) ?? []
       for (const sibFamily of siblingFamilies) {
         if (ctx.placedFamilies.has(sibFamily.id)) continue
-        placeFamilyV3(sibFamily, placedChildXs[i], generation, ctx)
+        placeFamilyV3(sibFamily, placedChildXs[i], generation, ctx, placedChildXs[i])
       }
     }
   }
@@ -297,15 +457,8 @@ export function placeAncestorsV3(
   const maxChildX = Math.max(...placedChildXs)
   const familyCenterX = (minChildX + maxChildX) / 2
 
-  // Dynamic couple gap based on ancestor widths
-  let effectiveGap = ctx.config.partnerGap
-  if (birthFamily.parentIds.length >= 2) {
-    const p0aw = ctx.measured.ancestorWidths.get(birthFamily.parentIds[0]) ?? 0
-    const p1aw = ctx.measured.ancestorWidths.get(birthFamily.parentIds[1]) ?? 0
-    if (p0aw > 0 || p1aw > 0) {
-      effectiveGap = Math.max(ctx.config.partnerGap, (p0aw + p1aw) / 2 + ctx.config.childGap)
-    }
-  }
+  // Fixed partner gap — the branch-aware resolver handles overlap.
+  const effectiveGap = ctx.config.partnerGap
 
   const parentVisualIds: string[] = []
   if (birthFamily.parentIds.length >= 2) {
@@ -350,14 +503,15 @@ export function placeAncestorsV3(
     }
   }
 
-  // Recurse: each parent's ancestors expand in OPPOSITE directions
+  // Recurse: both parents' ancestors expand in the SAME direction.
+  // The branch-aware resolver handles any resulting overlaps.
   if (birthFamily.parentIds.length >= 2) {
     const p0vid = makeVisualId(birthFamily.parentIds[0], birthFamily.id, 'parent')
     const p1vid = makeVisualId(birthFamily.parentIds[1], birthFamily.id, 'parent')
     const p0node = ctx.visualNodes.get(p0vid)
     const p1node = ctx.visualNodes.get(p1vid)
     if (p0node) placeAncestorsV3(birthFamily.parentIds[0], p0node.x, parentGen, direction, ctx)
-    if (p1node) placeAncestorsV3(birthFamily.parentIds[1], p1node.x, parentGen, -direction, ctx)
+    if (p1node) placeAncestorsV3(birthFamily.parentIds[1], p1node.x, parentGen, direction, ctx)
   } else if (birthFamily.parentIds.length === 1) {
     const p0vid = makeVisualId(birthFamily.parentIds[0], birthFamily.id, 'parent')
     const p0node = ctx.visualNodes.get(p0vid)

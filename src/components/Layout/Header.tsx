@@ -11,8 +11,9 @@ export function Header() {
       <h1 className="font-serif text-lg sm:text-xl text-text-primary">
         <span className="font-semibold">Familjen</span>
       </h1>
-      <nav className="flex gap-3 sm:gap-6">
+      <nav className="flex gap-2 sm:gap-4">
         <NavLink to="/" end className={linkClass}>Träd</NavLink>
+        <NavLink to="/lista" className={linkClass}>Lista</NavLink>
         <NavLink to="/sok" className={linkClass}>Sök</NavLink>
         <NavLink to="/galleri" className={linkClass}>Galleri</NavLink>
       </nav>

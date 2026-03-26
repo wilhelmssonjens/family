@@ -1,8 +1,10 @@
-import { BrowserRouter, Routes, Route, useParams } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, useParams, useNavigate } from 'react-router-dom'
 import { useState, useMemo } from 'react'
 import { FamilyDataProvider, useFamilyData } from './contexts/FamilyDataContext'
 import { Header } from './components/Layout/Header'
 import { TreeView } from './components/Tree/TreeView'
+import { FocusedTreeView } from './components/FocusedTree/FocusedTreeView'
+import { FamilyListView } from './components/FamilyList/FamilyListView'
 import { PersonModal, type EditPersonData } from './components/PersonCard/PersonModal'
 import { AddRelativeModal, type AddRelativeData } from './components/AddForm/AddRelativeModal'
 import { SearchView } from './components/Search/SearchView'
@@ -14,7 +16,11 @@ import { getRelationLabel } from './utils/formatPerson'
 // Config: set to true to require GitHub Issue approval, false for direct edits
 const REQUIRE_APPROVAL = false
 
-function TreePage() {
+/**
+ * Shared logic for pages that show person modals (focused view + full tree).
+ * Accepts a `view` prop to render either FocusedTreeView or TreeView.
+ */
+function FamilyPage({ view }: { view: 'focused' | 'tree' }) {
   const { id } = useParams()
   const { persons, relationships, loading, error, updatePerson, removePerson, addPerson, addRelationships } = useFamilyData()
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null)
@@ -183,13 +189,22 @@ function TreePage() {
 
   return (
     <div className="flex-1 relative overflow-hidden">
-      <TreeView
-        persons={persons}
-        relationships={relationships}
-        centerId={centerId}
-        highlightPersonId={newlyAddedId}
-        onPersonClick={(pid) => setSelectedPersonId(pid)}
-      />
+      {view === 'focused' ? (
+        <FocusedTreeView
+          persons={persons}
+          relationships={relationships}
+          centerId={centerId}
+          onPersonClick={(pid) => setSelectedPersonId(pid)}
+        />
+      ) : (
+        <TreeView
+          persons={persons}
+          relationships={relationships}
+          centerId={centerId}
+          highlightPersonId={newlyAddedId}
+          onPersonClick={(pid) => setSelectedPersonId(pid)}
+        />
+      )}
 
       {/* Person detail modal */}
       {selectedPerson && !showAddRelative && (
@@ -230,6 +245,21 @@ function TreePage() {
   )
 }
 
+function FamilyListPage() {
+  const { persons, relationships } = useFamilyData()
+  const navigate = useNavigate()
+
+  if (persons.length === 0) return <div className="flex-1 flex items-center justify-center font-sans text-text-secondary">Laddar...</div>
+
+  return (
+    <FamilyListView
+      persons={persons}
+      relationships={relationships}
+      onPersonClick={(id) => navigate(`/person/${id}`)}
+    />
+  )
+}
+
 function SearchPage() {
   const { persons } = useFamilyData()
   return <SearchView persons={persons} />
@@ -247,8 +277,9 @@ export default function App() {
         <div className="flex flex-col h-screen bg-bg-primary font-sans text-text-primary">
           <Header />
           <Routes>
-            <Route path="/" element={<TreePage />} />
-            <Route path="/person/:id" element={<TreePage />} />
+            <Route path="/" element={<FamilyPage view="focused" />} />
+            <Route path="/person/:id" element={<FamilyPage view="focused" />} />
+            <Route path="/lista" element={<FamilyListPage />} />
             <Route path="/sok" element={<SearchPage />} />
             <Route path="/galleri" element={<GalleryPage />} />
           </Routes>

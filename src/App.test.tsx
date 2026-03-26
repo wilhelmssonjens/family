@@ -82,12 +82,12 @@ describe('App', () => {
     expect(links.length).toBeGreaterThanOrEqual(1);
   });
 
-  it('renders the tree view on root route', async () => {
-    const { container } = render(<App />);
+  it('renders the focused view on root route', async () => {
+    render(<App />);
     await waitFor(
       () => {
-        const svg = container.querySelector('svg');
-        expect(svg).toBeTruthy();
+        // FocusedTreeView renders person name as text
+        expect(screen.getByText('Jens')).toBeTruthy();
       },
       { timeout: 3000 },
     );

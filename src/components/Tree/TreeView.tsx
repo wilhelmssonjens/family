@@ -23,6 +23,20 @@ export function TreeView({ persons, relationships, centerId, highlightPersonId, 
   const result = computeTreeLayoutV3(persons, relationships, centerId)
   const { visualNodes, families, nodeIndex } = result
 
+  // Pre-compute junction Y offsets so overlapping bracket lines are staggered.
+  // Families sharing the same parentY/childY pair get increasing offsets.
+  const LINE_SPACING = 6
+  const junctionOffsets = new Map<number, number>()
+  const levelCounts = new Map<string, number>()
+  for (let fi = 0; fi < families.length; fi++) {
+    const fam = families[fi]
+    if (fam.childVisualIds.length === 0) continue
+    const key = `${fam.parentY}:${fam.childY}`
+    const idx = levelCounts.get(key) ?? 0
+    levelCounts.set(key, idx + 1)
+    junctionOffsets.set(fi, idx * LINE_SPACING)
+  }
+
   useEffect(() => {
     if (!svgRef.current) return
 
@@ -101,7 +115,8 @@ export function TreeView({ persons, relationships, centerId, highlightPersonId, 
             }
 
             const parentCenterX = fam.centerX
-            const junctionY = fam.parentY + 0.4 * (fam.childY - fam.parentY)
+            const baseJunctionY = fam.parentY + 0.4 * (fam.childY - fam.parentY)
+            const junctionY = baseJunctionY + (junctionOffsets.get(i) ?? 0)
 
             // Single child: direct path from parent center to child
             if (childPositions.length === 1) {

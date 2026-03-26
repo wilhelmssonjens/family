@@ -364,4 +364,80 @@ describe('computeTreeLayoutV3', () => {
     expect(result.visualNodes.length).toBe(1)
     expect(result.visualNodes[0].personId).toBe('lonely')
   })
+
+  // --- Partner pair distance tests ---
+
+  it('parent pairs are never excessively far apart', () => {
+    const result = computeTreeLayoutV3(persons, relationships, 'jens')
+    const maxAllowedGap = 300 // ~2x partnerGap (160)
+
+    for (const connector of result.families) {
+      if (connector.parentVisualIds.length !== 2) continue
+      const n0 = result.nodeIndex.get(connector.parentVisualIds[0])
+      const n1 = result.nodeIndex.get(connector.parentVisualIds[1])
+      if (!n0 || !n1) continue
+
+      const dist = Math.abs(n1.x - n0.x)
+      expect(dist).toBeLessThanOrEqual(maxAllowedGap)
+    }
+  })
+
+  it('total layout width is reasonable for the dataset', () => {
+    const result = computeTreeLayoutV3(persons, relationships, 'jens')
+    // 37 persons, ~14 families → should be well under 5000px
+    expect(result.width).toBeLessThan(5000)
+    expect(result.width).toBeGreaterThan(500)
+  })
+
+  it('same-person dual instances share the same x position', () => {
+    const result = computeTreeLayoutV3(persons, relationships, 'jens')
+
+    // Group visual nodes by personId + y
+    const byPersonY = new Map<string, VisualPersonNode[]>()
+    for (const node of result.visualNodes) {
+      const key = `${node.personId}@${node.y}`
+      const list = byPersonY.get(key) ?? []
+      list.push(node)
+      byPersonY.set(key, list)
+    }
+
+    for (const [, nodes] of byPersonY) {
+      if (nodes.length < 2) continue
+      // All instances of same person at same y should have same x
+      for (let i = 1; i < nodes.length; i++) {
+        expect(nodes[i].x).toBe(nodes[0].x)
+      }
+    }
+  })
+
+  // --- Branch separation tests ---
+
+  it('right-branch nodes never appear left of left-branch nodes on same row', () => {
+    const result = computeTreeLayoutV3(persons, relationships, 'jens')
+
+    // Group by y-level
+    const byY = new Map<number, typeof result.visualNodes>()
+    for (const node of result.visualNodes) {
+      const list = byY.get(node.y) ?? []
+      list.push(node)
+      byY.set(node.y, list)
+    }
+
+    for (const [, nodes] of byY) {
+      const leftNodes = nodes.filter(n => n.branch === 'left')
+      const rightNodes = nodes.filter(n => n.branch === 'right')
+      if (leftNodes.length === 0 || rightNodes.length === 0) continue
+
+      const maxLeft = Math.max(...leftNodes.map(n => n.x))
+      const minRight = Math.min(...rightNodes.map(n => n.x))
+      expect(minRight).toBeGreaterThan(maxLeft)
+    }
+  })
+
+  it('all visual nodes have a branch assigned', () => {
+    const result = computeTreeLayoutV3(persons, relationships, 'jens')
+    for (const node of result.visualNodes) {
+      expect(['left', 'center', 'right']).toContain(node.branch)
+    }
+  })
 })

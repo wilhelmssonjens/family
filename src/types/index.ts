@@ -53,6 +53,8 @@ export interface PositionedFamilyConnector {
 
 // --- V3 Layout Types ---
 
+export type LayoutBranch = 'left' | 'right' | 'center'
+
 export interface VisualPersonNode {
   visualId: string // e.g. "p:anna@f:f1:parent"
   personId: string
@@ -63,6 +65,7 @@ export interface VisualPersonNode {
   y: number
   width: number
   height: number
+  branch: LayoutBranch
 }
 
 export interface PositionedFamilyConnectorV3 {

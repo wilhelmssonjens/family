@@ -8,6 +8,8 @@ import {
   placeAncestorsV3,
   placeVisualNode,
   makeVisualId,
+  resolveFamilyGrouping,
+  resolveRowOverlaps,
   type PlacementContextV3,
 } from './placeLayout'
 import { validateLayoutResult } from './validateLayout'
@@ -68,6 +70,7 @@ export function computeTreeLayoutV3(
       y: 0,
       width: config.cardWidth,
       height: config.cardHeight,
+      branch: 'center',
     }
     return {
       visualNodes: [node],
@@ -102,6 +105,7 @@ export function computeTreeLayoutV3(
     generations,
     measured,
     config,
+    currentBranch: 'center' as const,
     visualNodes: new Map(),
     placedFamilies: new Set(),
     familyConnectors: [],
@@ -140,6 +144,7 @@ export function computeTreeLayoutV3(
   }
 
   // 10. Place center person's ancestors (LEFT side, direction = -1)
+  ctx.currentBranch = 'left'
   const centerVisualId = makeVisualId(
     centerId,
     centerFamily.id,
@@ -151,6 +156,7 @@ export function computeTreeLayoutV3(
   }
 
   // 11. Place center partner's ancestors (RIGHT side, direction = +1)
+  ctx.currentBranch = 'right'
   if (centerPartnerId) {
     const partnerVisualId = makeVisualId(centerPartnerId, centerFamily.id, 'parent')
     const partnerNode = ctx.visualNodes.get(partnerVisualId)
@@ -159,7 +165,21 @@ export function computeTreeLayoutV3(
     }
   }
 
-  // 12. Build result
+  // 12. Unify branch for center couple — all instances get 'center'
+  // so the resolver treats them as anchors, not split across branches
+  for (const node of ctx.visualNodes.values()) {
+    if (node.personId === centerId || node.personId === centerPartnerId) {
+      node.branch = 'center'
+    }
+  }
+
+  // 13. Group siblings by birth family (shift entire subtrees to prevent interleaving)
+  resolveFamilyGrouping(ctx)
+
+  // 14. Resolve branch separation and remaining overlaps
+  resolveRowOverlaps(ctx)
+
+  // 13. Build result
   const visualNodes = Array.from(ctx.visualNodes.values())
   const nodeIndex = new Map(ctx.visualNodes)
 
@@ -180,7 +200,7 @@ export function computeTreeLayoutV3(
     height: visualNodes.length > 0 ? maxY - minY : 0,
   }
 
-  // 13. Validate
+  // 14. Validate
   validateLayoutResult(layoutResult)
 
   return layoutResult

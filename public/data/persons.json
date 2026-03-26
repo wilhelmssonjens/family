@@ -730,5 +730,21 @@
     "stories": [],
     "contactInfo": null,
     "familySide": "center"
+  },
+  {
+    "id": "christina-ahlbck",
+    "firstName": "Christina",
+    "lastName": "Ahlbäck",
+    "birthName": null,
+    "birthDate": "19350513",
+    "birthPlace": "Göteborg",
+    "deathDate": null,
+    "deathPlace": null,
+    "gender": "female",
+    "occupation": "Lärare",
+    "photos": [],
+    "stories": [],
+    "contactInfo": null,
+    "familySide": "center"
   }
 ]

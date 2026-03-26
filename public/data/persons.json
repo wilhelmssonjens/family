@@ -778,5 +778,21 @@
     "stories": [],
     "contactInfo": null,
     "familySide": "center"
+  },
+  {
+    "id": "gran-oleskog",
+    "firstName": "Göran",
+    "lastName": "Oleskog",
+    "birthName": null,
+    "birthDate": "1954",
+    "birthPlace": "Växjö",
+    "deathDate": null,
+    "deathPlace": null,
+    "gender": "male",
+    "occupation": "Ingenjör",
+    "photos": [],
+    "stories": [],
+    "contactInfo": null,
+    "familySide": "center"
   }
 ]

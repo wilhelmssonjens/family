@@ -714,5 +714,21 @@
     "stories": [],
     "contactInfo": null,
     "familySide": "jens"
+  },
+  {
+    "id": "pergunnar-ahlbck",
+    "firstName": "Per Gunnar",
+    "lastName": "Ahlbäck",
+    "birthName": null,
+    "birthDate": "19291231",
+    "birthPlace": "Örebro",
+    "deathDate": null,
+    "deathPlace": null,
+    "gender": "male",
+    "occupation": "Lärare",
+    "photos": [],
+    "stories": [],
+    "contactInfo": null,
+    "familySide": "center"
   }
 ]

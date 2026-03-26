@@ -194,22 +194,6 @@
     "familySide": "jens"
   },
   {
-    "id": "augusta",
-    "firstName": "Augusta",
-    "lastName": "",
-    "birthName": null,
-    "birthDate": "1924-01-01",
-    "birthPlace": "Storsele, Gävle",
-    "deathDate": null,
-    "deathPlace": null,
-    "gender": "female",
-    "occupation": null,
-    "photos": [],
-    "stories": [],
-    "contactInfo": null,
-    "familySide": "jens"
-  },
-  {
     "id": "tor-ahlbck",
     "firstName": "Tor",
     "lastName": "Ahlbäck",

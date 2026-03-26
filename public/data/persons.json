@@ -746,5 +746,21 @@
     "stories": [],
     "contactInfo": null,
     "familySide": "center"
+  },
+  {
+    "id": "birgit-oleskog",
+    "firstName": "Birgit",
+    "lastName": "Oleskog",
+    "birthName": null,
+    "birthDate": "192211",
+    "birthPlace": "Linneryd, Korrö",
+    "deathDate": "2017",
+    "deathPlace": "Växjö",
+    "gender": "female",
+    "occupation": "Sjuksköterska",
+    "photos": [],
+    "stories": [],
+    "contactInfo": null,
+    "familySide": "center"
   }
 ]

@@ -906,5 +906,21 @@
     "stories": [],
     "contactInfo": null,
     "familySide": "jens"
+  },
+  {
+    "id": "peter-andersson",
+    "firstName": "Peter",
+    "lastName": "Andersson",
+    "birthName": null,
+    "birthDate": null,
+    "birthPlace": "Göteborg?",
+    "deathDate": null,
+    "deathPlace": null,
+    "gender": "male",
+    "occupation": null,
+    "photos": [],
+    "stories": [],
+    "contactInfo": null,
+    "familySide": "jens"
   }
 ]

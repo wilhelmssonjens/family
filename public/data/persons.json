@@ -1146,5 +1146,21 @@
     ],
     "contactInfo": null,
     "familySide": "jens"
+  },
+  {
+    "id": "oknd-andersson",
+    "firstName": "Okänd",
+    "lastName": "Andersson",
+    "birthName": null,
+    "birthDate": null,
+    "birthPlace": null,
+    "deathDate": null,
+    "deathPlace": null,
+    "gender": "male",
+    "occupation": "Kusk på Rottneros",
+    "photos": [],
+    "stories": [],
+    "contactInfo": null,
+    "familySide": "jens"
   }
 ]

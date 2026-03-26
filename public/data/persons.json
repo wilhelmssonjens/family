@@ -189,7 +189,12 @@
     "gender": "male",
     "occupation": null,
     "photos": [],
-    "stories": [],
+    "stories": [
+      {
+        "title": "",
+        "text": "Bockens bryggeri"
+      }
+    ],
     "contactInfo": null,
     "familySide": "jens"
   },

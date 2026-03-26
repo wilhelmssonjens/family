@@ -137,7 +137,7 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
   }
 
   return (
-    <div className="flex flex-col items-center gap-1 py-10 pb-20 px-4">
+    <div className="flex flex-col items-center gap-1 py-10 pb-20 px-4 min-w-fit">
 
         {/* === ANCESTORS (slim: just couples, no siblings) === */}
         {Array.from({ length: maxChainLen }).map((_, i) => {

@@ -363,5 +363,11 @@
     "type": "parent",
     "from": "birgit-oleskog",
     "to": "lena-ahlbck"
+  },
+  {
+    "type": "partner",
+    "from": "birgit-oleskog",
+    "to": "lennart-oleskog",
+    "status": "current"
   }
 ]

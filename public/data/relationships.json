@@ -420,5 +420,11 @@
     "from": "ingrid-1774535360501",
     "to": "uno-muhr",
     "status": "current"
+  },
+  {
+    "type": "partner",
+    "from": "ingrid-muhr",
+    "to": "uno-muhr",
+    "status": "current"
   }
 ]

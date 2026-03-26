@@ -485,5 +485,11 @@
     "type": "parent",
     "from": "tyra-wilhelmsson",
     "to": "gunnar-w"
+  },
+  {
+    "type": "partner",
+    "from": "konrad",
+    "to": "tyra-wilhelmsson",
+    "status": "current"
   }
 ]

@@ -470,5 +470,15 @@
     "type": "parent",
     "from": "svea-1774537087620",
     "to": "brje-norstrm"
+  },
+  {
+    "type": "parent",
+    "from": "pergunnar-ahlbck",
+    "to": "pernilla-bjrk"
+  },
+  {
+    "type": "parent",
+    "from": "christina-ahlbck",
+    "to": "pernilla-bjrk"
   }
 ]

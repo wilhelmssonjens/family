@@ -502,5 +502,10 @@
     "from": "karin-wernmark",
     "to": "bjrn-wernmark",
     "status": "current"
+  },
+  {
+    "type": "parent",
+    "from": "karin-wernmark",
+    "to": "ulrika-wernmark"
   }
 ]

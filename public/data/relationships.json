@@ -352,5 +352,11 @@
     "type": "parent",
     "from": "pergunnar-ahlbck",
     "to": "tor-ahlbck"
+  },
+  {
+    "type": "partner",
+    "from": "pergunnar-ahlbck",
+    "to": "christina-ahlbck",
+    "status": "current"
   }
 ]

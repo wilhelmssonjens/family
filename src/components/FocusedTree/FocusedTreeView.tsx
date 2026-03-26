@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState, useRef, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { PersonCard } from './PersonCard'
 import type { Person, Relationship } from '../../types'
@@ -14,6 +14,19 @@ interface Props {
 
 // Max generations to show below center (center's children + grandchildren)
 const MAX_DESCENDANT_GENS = 2
+const MIN_ZOOM = 0.4
+const MAX_ZOOM = 2.5
+const ZOOM_STEP = 0.15
+
+function clamp(val: number, min: number, max: number) {
+  return Math.min(Math.max(val, min), max)
+}
+
+function getFingerDistance(t1: Touch, t2: Touch) {
+  const dx = t1.clientX - t2.clientX
+  const dy = t1.clientY - t2.clientY
+  return Math.sqrt(dx * dx + dy * dy)
+}
 
 /**
  * Collect the ancestor chain upward from a person.
@@ -86,6 +99,65 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
   const navigate = useNavigate()
   const graph = useMemo(() => buildFamilyGraph(persons, relationships), [persons, relationships])
 
+  // Zoom state
+  const [zoom, setZoom] = useState(1)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const zoomRef = useRef(1)
+  const pinchRef = useRef<{ startDist: number; startZoom: number } | null>(null)
+  zoomRef.current = zoom
+
+  // Pinch-to-zoom + Ctrl+wheel zoom via native listeners (passive: false for preventDefault)
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+
+    function onTouchStart(e: TouchEvent) {
+      if (e.touches.length === 2) {
+        e.preventDefault()
+        pinchRef.current = {
+          startDist: getFingerDistance(e.touches[0], e.touches[1]),
+          startZoom: zoomRef.current,
+        }
+      }
+    }
+
+    function onTouchMove(e: TouchEvent) {
+      if (e.touches.length === 2 && pinchRef.current) {
+        e.preventDefault()
+        const dist = getFingerDistance(e.touches[0], e.touches[1])
+        const newZoom = pinchRef.current.startZoom * (dist / pinchRef.current.startDist)
+        setZoom(clamp(newZoom, MIN_ZOOM, MAX_ZOOM))
+      }
+    }
+
+    function onTouchEnd() {
+      pinchRef.current = null
+    }
+
+    function onWheel(e: WheelEvent) {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault()
+        setZoom(prev => clamp(prev - e.deltaY * 0.01, MIN_ZOOM, MAX_ZOOM))
+      }
+    }
+
+    el.addEventListener('touchstart', onTouchStart, { passive: false })
+    el.addEventListener('touchmove', onTouchMove, { passive: false })
+    el.addEventListener('touchend', onTouchEnd)
+    el.addEventListener('wheel', onWheel, { passive: false })
+
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart)
+      el.removeEventListener('touchmove', onTouchMove)
+      el.removeEventListener('touchend', onTouchEnd)
+      el.removeEventListener('wheel', onWheel)
+    }
+  }, [])
+
+  const zoomIn = useCallback(() => setZoom(z => clamp(z + ZOOM_STEP, MIN_ZOOM, MAX_ZOOM)), [])
+  const zoomOut = useCallback(() => setZoom(z => clamp(z - ZOOM_STEP, MIN_ZOOM, MAX_ZOOM)), [])
+  const zoomReset = useCallback(() => setZoom(1), [])
+
   const center = persons.find(p => p.id === centerId)
   if (!center) {
     return <div className="flex-1 flex items-center justify-center font-sans text-text-secondary">Personen hittades inte</div>
@@ -137,7 +209,11 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
   }
 
   return (
-    <div className="flex flex-col items-center gap-1 py-10 pb-20 px-4 min-w-fit">
+    <div ref={containerRef} className="relative" style={{ touchAction: 'pan-x pan-y' }}>
+      <div
+        className="flex flex-col items-center gap-1 py-10 pb-20 px-4 min-w-fit"
+        style={{ zoom }}
+      >
 
         {/* === ANCESTORS (slim: just couples, no siblings) === */}
         {Array.from({ length: maxChainLen }).map((_, i) => {
@@ -259,6 +335,40 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
             Klicka på {center.firstName} för att lägga till familjemedlemmar.
           </p>
         )}
+      </div>
+
+      {/* Zoom controls */}
+      <div className="fixed bottom-20 sm:bottom-6 right-3 flex flex-col gap-1.5 z-40">
+        <button
+          onClick={zoomIn}
+          className="w-9 h-9 rounded-full bg-card-bg/90 border border-card-border/40 shadow-md
+                     flex items-center justify-center text-text-primary font-sans text-base
+                     hover:bg-accent hover:text-white active:scale-95 transition-all"
+          aria-label="Zooma in"
+        >
+          +
+        </button>
+        <button
+          onClick={zoomOut}
+          className="w-9 h-9 rounded-full bg-card-bg/90 border border-card-border/40 shadow-md
+                     flex items-center justify-center text-text-primary font-sans text-base
+                     hover:bg-accent hover:text-white active:scale-95 transition-all"
+          aria-label="Zooma ut"
+        >
+          &minus;
+        </button>
+        {zoom !== 1 && (
+          <button
+            onClick={zoomReset}
+            className="w-9 h-9 rounded-full bg-card-bg/90 border border-card-border/40 shadow-md
+                       flex items-center justify-center text-text-secondary font-sans text-[10px]
+                       hover:bg-accent hover:text-white active:scale-95 transition-all"
+            aria-label="Återställ zoom"
+          >
+            1:1
+          </button>
+        )}
+      </div>
     </div>
   )
 }

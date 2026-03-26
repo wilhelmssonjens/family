@@ -379,5 +379,10 @@
     "type": "parent",
     "from": "birgit-oleskog",
     "to": "henrik-oleskog"
+  },
+  {
+    "type": "parent",
+    "from": "birgit-oleskog",
+    "to": "ylva-oleskog"
   }
 ]

@@ -624,5 +624,21 @@
     "stories": [],
     "contactInfo": null,
     "familySide": "jens"
+  },
+  {
+    "id": "brita-andersson",
+    "firstName": "Brita",
+    "lastName": "Andersson",
+    "birthName": null,
+    "birthDate": null,
+    "birthPlace": "Hedesunda",
+    "deathDate": null,
+    "deathPlace": "Hofors",
+    "gender": "female",
+    "occupation": null,
+    "photos": [],
+    "stories": [],
+    "contactInfo": null,
+    "familySide": "jens"
   }
 ]

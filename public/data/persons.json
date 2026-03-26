@@ -865,22 +865,6 @@
     "familySide": "jens"
   },
   {
-    "id": "uno-muhr",
-    "firstName": "Uno",
-    "lastName": "Muhr",
-    "birthName": null,
-    "birthDate": null,
-    "birthPlace": null,
-    "deathDate": null,
-    "deathPlace": "Gårdskär",
-    "gender": "male",
-    "occupation": null,
-    "photos": [],
-    "stories": [],
-    "contactInfo": null,
-    "familySide": "jens"
-  },
-  {
     "id": "christer-muhr",
     "firstName": "Christer",
     "lastName": "Muhr",
@@ -1051,8 +1035,8 @@
     "familySide": "jens"
   },
   {
-    "id": "august-andersson",
-    "firstName": "August",
+    "id": "parent-of-konrad",
+    "firstName": "Okänd",
     "lastName": "Andersson",
     "birthName": null,
     "birthDate": null,
@@ -1060,14 +1044,9 @@
     "deathDate": null,
     "deathPlace": null,
     "gender": "male",
-    "occupation": "Skräddare",
+    "occupation": null,
     "photos": [],
-    "stories": [
-      {
-        "title": "Berättelse",
-        "text": "Gävle"
-      }
-    ],
+    "stories": [],
     "contactInfo": null,
     "familySide": "jens"
   }

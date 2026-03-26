@@ -450,5 +450,15 @@
     "type": "parent",
     "from": "ingrid-1774536166078",
     "to": "annika-andersson"
+  },
+  {
+    "type": "parent",
+    "from": "parent-of-konrad",
+    "to": "konrad"
+  },
+  {
+    "type": "parent",
+    "from": "parent-of-konrad",
+    "to": "august-andersson"
   }
 ]

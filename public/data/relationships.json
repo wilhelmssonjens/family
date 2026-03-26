@@ -347,5 +347,10 @@
     "type": "parent",
     "from": "mindolf-olsson",
     "to": "yngve-olsson"
+  },
+  {
+    "type": "parent",
+    "from": "pergunnar-ahlbck",
+    "to": "tor-ahlbck"
   }
 ]

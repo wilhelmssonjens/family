@@ -682,5 +682,21 @@
     ],
     "contactInfo": null,
     "familySide": "jens"
+  },
+  {
+    "id": "mindolf-olsson",
+    "firstName": "Mindolf",
+    "lastName": "Olsson",
+    "birthName": null,
+    "birthDate": null,
+    "birthPlace": null,
+    "deathDate": null,
+    "deathPlace": null,
+    "gender": "male",
+    "occupation": null,
+    "photos": [],
+    "stories": [],
+    "contactInfo": null,
+    "familySide": "jens"
   }
 ]

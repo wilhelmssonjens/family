@@ -12,6 +12,7 @@ import { GalleryView } from './components/Gallery/GalleryView'
 import type { Person, Relationship } from './types'
 import { buildFamilyGraph } from './utils/buildTree'
 import { getRelationLabel } from './utils/formatPerson'
+import { enqueueApiCall } from './utils/apiQueue'
 
 // Config: set to true to require GitHub Issue approval, false for direct edits
 const REQUIRE_APPROVAL = false
@@ -41,10 +42,16 @@ function FamilyPage({ view }: { view: 'focused' | 'tree' }) {
   const centerId = id ?? 'jens'
   const selectedPerson = persons.find(p => p.id === selectedPersonId)
 
-  async function handleEditSave(data: EditPersonData) {
+  const showError = () => {
+    setSubmitStatus('error')
+    setTimeout(() => setSubmitStatus('idle'), 3000)
+  }
+
+  function handleEditSave(data: EditPersonData) {
+    const editId = selectedPersonId
     // Optimistic: update locally + close modal immediately
-    if (selectedPersonId) {
-      updatePerson(selectedPersonId, {
+    if (editId) {
+      updatePerson(editId, {
         firstName: data.firstName,
         lastName: data.lastName,
         birthName: data.birthName || null,
@@ -60,70 +67,63 @@ function FamilyPage({ view }: { view: 'focused' | 'tree' }) {
     }
     setSelectedPersonId(null)
 
-    // API call in background
+    // Enqueue API call — runs after any pending calls finish
     const endpoint = REQUIRE_APPROVAL ? '/api/submit-contribution' : '/api/submit-direct'
-    try {
+    enqueueApiCall(async () => {
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...data, relationType: 'edit', relatedToId: selectedPersonId }),
+        body: JSON.stringify({ ...data, relationType: 'edit', relatedToId: editId }),
       })
       if (!res.ok) throw new Error()
-    } catch {
-      setSubmitStatus('error')
-      setTimeout(() => setSubmitStatus('idle'), 3000)
-    }
+    }, showError)
   }
 
-  async function handleDelete() {
-    // Optimistic: remove locally + close modal immediately
+  function handleDelete() {
     const deleteId = selectedPersonId
     if (deleteId) removePerson(deleteId)
     setSelectedPersonId(null)
 
-    // API call in background
     const endpoint = REQUIRE_APPROVAL ? '/api/submit-contribution' : '/api/submit-direct'
-    try {
+    enqueueApiCall(async () => {
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ relationType: 'delete', relatedToId: deleteId }),
       })
       if (!res.ok) throw new Error()
-    } catch {
-      setSubmitStatus('error')
-      setTimeout(() => setSubmitStatus('idle'), 3000)
-    }
+    }, showError)
   }
 
-  async function handleAddRelative(data: AddRelativeData) {
-    // Close modals immediately for snappy UX
+  function handleAddRelative(data: AddRelativeData) {
     const anchorId = selectedPersonId
+    const anchorFamilySide = selectedPerson?.familySide ?? 'jens'
     setShowAddRelative(false)
     setSelectedPersonId(null)
 
+    if (!anchorId) return
+
     const endpoint = REQUIRE_APPROVAL ? '/api/submit-contribution' : '/api/submit-direct'
 
-    try {
-      if (data.existingPersonId && anchorId) {
-        // Link existing person — optimistic local update first
-        const newRels: Relationship[] = []
-        if (data.relationType === 'parent') {
-          newRels.push({ type: 'parent', from: data.existingPersonId, to: anchorId })
-        } else if (data.relationType === 'child') {
-          newRels.push({ type: 'parent', from: anchorId, to: data.existingPersonId })
-        } else if (data.relationType === 'partner') {
-          newRels.push({ type: 'partner', from: anchorId, to: data.existingPersonId, status: 'current' })
-        } else if (data.relationType === 'sibling') {
-          const parentRels = relationships.filter(r => r.type === 'parent' && r.to === anchorId)
-          for (const pr of parentRels) {
-            newRels.push({ type: 'parent', from: pr.from, to: data.existingPersonId })
-          }
+    if (data.existingPersonId) {
+      // Link existing person — optimistic local update
+      const newRels: Relationship[] = []
+      if (data.relationType === 'parent') {
+        newRels.push({ type: 'parent', from: data.existingPersonId, to: anchorId })
+      } else if (data.relationType === 'child') {
+        newRels.push({ type: 'parent', from: anchorId, to: data.existingPersonId })
+      } else if (data.relationType === 'partner') {
+        newRels.push({ type: 'partner', from: anchorId, to: data.existingPersonId, status: 'current' })
+      } else if (data.relationType === 'sibling') {
+        const parentRels = relationships.filter(r => r.type === 'parent' && r.to === anchorId)
+        for (const pr of parentRels) {
+          newRels.push({ type: 'parent', from: pr.from, to: data.existingPersonId })
         }
-        addRelationships(newRels)
+      }
+      addRelationships(newRels)
 
-        // API call in background
-        await fetch(endpoint, {
+      enqueueApiCall(async () => {
+        const res = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -133,52 +133,50 @@ function FamilyPage({ view }: { view: 'focused' | 'tree' }) {
             linkRelationType: data.relationType,
           }),
         })
-      } else if (anchorId) {
-        // Create new person — need API response for personId, but close modal first
-        // Generate a temporary ID optimistically
-        const tempId = data.firstName.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now()
-        const newPerson: Person = {
-          id: tempId,
-          firstName: data.firstName,
-          lastName: data.lastName,
-          birthName: data.birthName ?? null,
-          birthDate: data.birthDate ?? null,
-          birthPlace: data.birthPlace ?? null,
-          deathDate: data.deathDate ?? null,
-          deathPlace: data.deathPlace ?? null,
-          gender: data.gender,
-          occupation: data.occupation ?? null,
-          photos: [],
-          stories: data.story ? [{ title: 'Berättelse', text: data.story }] : [],
-          contactInfo: null,
-          familySide: selectedPerson?.familySide ?? 'jens',
+        if (!res.ok) throw new Error()
+      }, showError)
+    } else {
+      // Create new person — optimistic with temp ID
+      const tempId = data.firstName.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now()
+      const newPerson: Person = {
+        id: tempId,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        birthName: data.birthName ?? null,
+        birthDate: data.birthDate ?? null,
+        birthPlace: data.birthPlace ?? null,
+        deathDate: data.deathDate ?? null,
+        deathPlace: data.deathPlace ?? null,
+        gender: data.gender,
+        occupation: data.occupation ?? null,
+        photos: [],
+        stories: data.story ? [{ title: 'Berättelse', text: data.story }] : [],
+        contactInfo: null,
+        familySide: anchorFamilySide,
+      }
+      const newRels: Relationship[] = []
+      if (data.relationType === 'parent') {
+        newRels.push({ type: 'parent', from: tempId, to: anchorId })
+      } else if (data.relationType === 'child') {
+        newRels.push({ type: 'parent', from: anchorId, to: tempId })
+      } else if (data.relationType === 'partner') {
+        newRels.push({ type: 'partner', from: anchorId, to: tempId, status: 'current' })
+      } else if (data.relationType === 'sibling') {
+        const parentRels = relationships.filter(r => r.type === 'parent' && r.to === anchorId)
+        for (const pr of parentRels) {
+          newRels.push({ type: 'parent', from: pr.from, to: tempId })
         }
-        const newRels: Relationship[] = []
-        if (data.relationType === 'parent') {
-          newRels.push({ type: 'parent', from: tempId, to: anchorId })
-        } else if (data.relationType === 'child') {
-          newRels.push({ type: 'parent', from: anchorId, to: tempId })
-        } else if (data.relationType === 'partner') {
-          newRels.push({ type: 'partner', from: anchorId, to: tempId, status: 'current' })
-        } else if (data.relationType === 'sibling') {
-          const parentRels = relationships.filter(r => r.type === 'parent' && r.to === anchorId)
-          for (const pr of parentRels) {
-            newRels.push({ type: 'parent', from: pr.from, to: tempId })
-          }
-        }
-        addPerson(newPerson, newRels)
+      }
+      addPerson(newPerson, newRels)
 
-        // API call in background
+      enqueueApiCall(async () => {
         const res = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ...data, relatedToId: anchorId }),
         })
         if (!res.ok) throw new Error()
-      }
-    } catch {
-      setSubmitStatus('error')
-      setTimeout(() => setSubmitStatus('idle'), 3000)
+      }, showError)
     }
   }
 

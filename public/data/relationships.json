@@ -507,5 +507,10 @@
     "type": "parent",
     "from": "karin-wernmark",
     "to": "ulrika-wernmark"
+  },
+  {
+    "type": "parent",
+    "from": "karin-wernmark",
+    "to": "susanna-wernmark"
   }
 ]

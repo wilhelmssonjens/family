@@ -1109,5 +1109,21 @@
     "stories": [],
     "contactInfo": null,
     "familySide": "center"
+  },
+  {
+    "id": "tyra-wilhelmsson",
+    "firstName": "Tyra",
+    "lastName": "Wilhelmsson",
+    "birthName": "Andersson",
+    "birthDate": null,
+    "birthPlace": null,
+    "deathDate": null,
+    "deathPlace": null,
+    "gender": "female",
+    "occupation": null,
+    "photos": [],
+    "stories": [],
+    "contactInfo": null,
+    "familySide": "jens"
   }
 ]

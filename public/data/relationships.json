@@ -389,5 +389,10 @@
     "type": "parent",
     "from": "lennart-oleskog",
     "to": "lena-ahlbck"
+  },
+  {
+    "type": "parent",
+    "from": "christina-ahlbck",
+    "to": "tor-ahlbck"
   }
 ]

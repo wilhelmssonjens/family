@@ -106,12 +106,17 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
   const zoomRef = useRef(1)
   const pinchRef = useRef<{ startDist: number; startZoom: number } | null>(null)
 
-  // Apply zoom directly to DOM — no React re-render, no vibration
+  // Apply zoom directly to DOM — set transformOrigin to viewport center so zoom feels natural
   function setZoomDirect(value: number) {
     zoomRef.current = value
-    if (contentRef.current) {
-      contentRef.current.style.transform = value !== 1 ? `scale(${value})` : ''
-    }
+    const content = contentRef.current
+    const scrollParent = containerRef.current?.parentElement
+    if (!content || !scrollParent) return
+    // Transform origin = center of what's currently visible (in content coordinates)
+    const ox = scrollParent.scrollLeft + scrollParent.clientWidth / 2
+    const oy = scrollParent.scrollTop + scrollParent.clientHeight / 2
+    content.style.transformOrigin = `${ox}px ${oy}px`
+    content.style.transform = value !== 1 ? `scale(${value})` : ''
   }
 
   // Reset zoom + scroll center person into view on navigation
@@ -124,8 +129,7 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
     return () => clearTimeout(timer)
   }, [centerId])
 
-  // Zoom toward a focal point: adjusts scroll so the point stays on screen
-  const applyZoomRef = useRef<(newZoom: number, focalX: number, focalY: number, syncUI?: boolean) => void>(() => {})
+  const applyZoomRef = useRef<(newZoom: number, syncUI?: boolean) => void>(() => {})
 
   // Free-form pan (no axis locking) + focal-point zoom + momentum
   useEffect(() => {
@@ -135,17 +139,11 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
     if (!sp) return
     const scrollParent: HTMLElement = sp
 
-    // Zoom toward a focal point — direct DOM, no React re-render
-    function applyZoom(newZoom: number, fx: number, fy: number, syncUI = false) {
+    // Simple zoom — transformOrigin handles focal point, no scroll adjustment
+    function applyZoom(newZoom: number, syncUI = false) {
       const clamped = clamp(newZoom, MIN_ZOOM, MAX_ZOOM)
-      const oldZoom = zoomRef.current
-      if (clamped === oldZoom) return
-      const ratio = clamped / oldZoom
-      const newSL = (scrollParent.scrollLeft + fx) * ratio - fx
-      const newST = (scrollParent.scrollTop + fy) * ratio - fy
+      if (clamped === zoomRef.current) return
       setZoomDirect(clamped)
-      scrollParent.scrollLeft = Math.max(0, newSL)
-      scrollParent.scrollTop = Math.max(0, newST)
       if (syncUI) setZoomUI(clamped)
     }
     applyZoomRef.current = applyZoom
@@ -157,6 +155,7 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
     let velocity = { vx: 0, vy: 0 }
     let momentumId: number | null = null
     let gestureStartZoom = 1
+    let usingSafariGestures = false // prevent dual pinch handling on Safari
 
     function stopMomentum() {
       if (momentumId !== null) { cancelAnimationFrame(momentumId); momentumId = null }
@@ -183,7 +182,8 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
         isPanning = false
         lastTouch = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now() }
         velocity = { vx: 0, vy: 0 }
-      } else if (e.touches.length === 2) {
+      } else if (e.touches.length === 2 && !usingSafariGestures) {
+        // Only handle pinch via touch on Android (Safari uses gesture events)
         e.preventDefault()
         panStart = null; isPanning = false
         pinchRef.current = { startDist: getFingerDistance(e.touches[0], e.touches[1]), startZoom: zoomRef.current }
@@ -205,15 +205,10 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
           if (dt > 0) velocity = { vx: (lastTouch.x - x) / dt, vy: (lastTouch.y - y) / dt }
         }
         lastTouch = { x, y, t: now }
-      } else if (e.touches.length === 2 && pinchRef.current) {
+      } else if (e.touches.length === 2 && pinchRef.current && !usingSafariGestures) {
         e.preventDefault()
         const dist = getFingerDistance(e.touches[0], e.touches[1])
-        const newZoom = pinchRef.current.startZoom * (dist / pinchRef.current.startDist)
-        // Focal point = midpoint between fingers
-        const rect = scrollParent.getBoundingClientRect()
-        const fx = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left
-        const fy = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top
-        applyZoom(newZoom, fx, fy)
+        applyZoom(pinchRef.current.startZoom * (dist / pinchRef.current.startDist))
       }
     }
 
@@ -225,21 +220,26 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
       }
     }
 
-    // Safari gesture events — focal point = center of viewport
-    function onGestureStart(e: Event) { e.preventDefault(); gestureStartZoom = zoomRef.current }
+    // Safari gesture events (prevents dual handling with touch events)
+    function onGestureStart(e: Event) {
+      e.preventDefault()
+      usingSafariGestures = true
+      gestureStartZoom = zoomRef.current
+    }
     function onGestureChange(e: Event) {
       e.preventDefault()
-      const scale = (e as Event & { scale: number }).scale
-      applyZoom(gestureStartZoom * scale, scrollParent.clientWidth / 2, scrollParent.clientHeight / 2)
+      applyZoom(gestureStartZoom * (e as Event & { scale: number }).scale)
     }
-    function onGestureEnd(e: Event) { e.preventDefault(); setZoomUI(zoomRef.current) }
+    function onGestureEnd(e: Event) {
+      e.preventDefault()
+      setZoomUI(zoomRef.current)
+    }
 
-    // Desktop: Ctrl+wheel — focal point = cursor position
+    // Desktop: Ctrl+wheel
     function onWheel(e: WheelEvent) {
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault()
-        const rect = scrollParent.getBoundingClientRect()
-        applyZoom(zoomRef.current - e.deltaY * 0.01, e.clientX - rect.left, e.clientY - rect.top)
+        applyZoom(zoomRef.current - e.deltaY * 0.01)
       }
     }
 
@@ -263,19 +263,9 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
     }
   }, [])
 
-  // +/- buttons zoom toward viewport center (sync UI immediately)
-  const zoomIn = useCallback(() => {
-    const sp = containerRef.current?.parentElement
-    if (sp) applyZoomRef.current(zoomRef.current + ZOOM_STEP, sp.clientWidth / 2, sp.clientHeight / 2, true)
-  }, [])
-  const zoomOut = useCallback(() => {
-    const sp = containerRef.current?.parentElement
-    if (sp) applyZoomRef.current(zoomRef.current - ZOOM_STEP, sp.clientWidth / 2, sp.clientHeight / 2, true)
-  }, [])
-  const zoomReset = useCallback(() => {
-    const sp = containerRef.current?.parentElement
-    if (sp) applyZoomRef.current(1, sp.clientWidth / 2, sp.clientHeight / 2, true)
-  }, [])
+  const zoomIn = useCallback(() => applyZoomRef.current(zoomRef.current + ZOOM_STEP, true), [])
+  const zoomOut = useCallback(() => applyZoomRef.current(zoomRef.current - ZOOM_STEP, true), [])
+  const zoomReset = useCallback(() => applyZoomRef.current(1, true), [])
 
   const center = persons.find(p => p.id === centerId)
   if (!center) {
@@ -333,7 +323,7 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
         ref={contentRef}
         key={centerId}
         className="flex flex-col items-center gap-1 pt-[50vh] pb-[50vh] px-[50vw] min-w-fit animate-tree-enter"
-        style={{ transformOrigin: '0 0' }}
+        style={{ transformOrigin: 'center center' }}
       >
 
         {/* === ANCESTORS (slim: just couples, no siblings) === */}

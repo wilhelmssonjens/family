@@ -282,7 +282,7 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
     <div ref={containerRef} className="relative" style={{ touchAction: 'none' }}>
       <div
         key={centerId}
-        className="flex flex-col items-center gap-1 pt-[15vh] pb-[30vh] px-[10vw] min-w-fit animate-tree-enter"
+        className="flex flex-col items-center gap-1 pt-[50vh] pb-[50vh] px-[50vw] min-w-fit animate-tree-enter"
         style={zoom !== 1 ? { transform: `scale(${zoom})`, transformOrigin: 'center top' } : undefined}
       >
 

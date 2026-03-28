@@ -106,7 +106,15 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
   const pinchRef = useRef<{ startDist: number; startZoom: number } | null>(null)
   zoomRef.current = zoom
 
-  useEffect(() => { setZoom(1) }, [centerId])
+  // Reset zoom + scroll center person into view on navigation
+  useEffect(() => {
+    setZoom(1)
+    // Small delay to let the DOM render before scrolling
+    const timer = setTimeout(() => {
+      document.getElementById('center-person')?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })
+    }, 50)
+    return () => clearTimeout(timer)
+  }, [centerId])
 
   // Pinch-to-zoom (Safari gesture events + Android touch events) + Ctrl+wheel
   useEffect(() => {
@@ -304,7 +312,7 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
             <PersonCard key={sib.id} person={sib} onNavigate={() => handleNav(sib.id)} onShowInfo={() => onPersonClick(sib.id)} />
           ))}
 
-          <div className="flex items-center gap-2">
+          <div id="center-person" className="flex items-center gap-2">
             <PersonCard person={center} isCenter onShowInfo={() => onPersonClick(centerId)} />
             {partners.map(p => (
               <div key={p.id} className="flex items-center gap-2">

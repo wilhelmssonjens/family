@@ -43,7 +43,7 @@
 }
 
 .animate-tree-enter {
-  animation: tree-enter 0.3s ease-out;
+  animation: tree-enter 0.5s ease-out;
 }
 
 /* Prevent text selection on mobile during drag */

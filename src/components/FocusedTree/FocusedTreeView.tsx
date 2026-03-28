@@ -99,17 +99,25 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
   const navigate = useNavigate()
   const graph = useMemo(() => buildFamilyGraph(persons, relationships), [persons, relationships])
 
-  // Zoom state — reset on center change
-  const [zoom, setZoom] = useState(1)
+  // Zoom: ref is the source of truth, state is only for UI (buttons display)
+  const [zoomUI, setZoomUI] = useState(1)
   const containerRef = useRef<HTMLDivElement>(null)
+  const contentRef = useRef<HTMLDivElement>(null)
   const zoomRef = useRef(1)
   const pinchRef = useRef<{ startDist: number; startZoom: number } | null>(null)
-  zoomRef.current = zoom
+
+  // Apply zoom directly to DOM — no React re-render, no vibration
+  function setZoomDirect(value: number) {
+    zoomRef.current = value
+    if (contentRef.current) {
+      contentRef.current.style.transform = value !== 1 ? `scale(${value})` : ''
+    }
+  }
 
   // Reset zoom + scroll center person into view on navigation
   useEffect(() => {
-    setZoom(1)
-    // Small delay to let the DOM render before scrolling
+    setZoomDirect(1)
+    setZoomUI(1)
     const timer = setTimeout(() => {
       document.getElementById('center-person')?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })
     }, 50)
@@ -117,7 +125,7 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
   }, [centerId])
 
   // Zoom toward a focal point: adjusts scroll so the point stays on screen
-  const applyZoomRef = useRef<(newZoom: number, focalX: number, focalY: number) => void>(() => {})
+  const applyZoomRef = useRef<(newZoom: number, focalX: number, focalY: number, syncUI?: boolean) => void>(() => {})
 
   // Free-form pan (no axis locking) + focal-point zoom + momentum
   useEffect(() => {
@@ -127,17 +135,18 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
     if (!sp) return
     const scrollParent: HTMLElement = sp
 
-    // Zoom toward a focal point (screen coords relative to scroll parent)
-    function applyZoom(newZoom: number, fx: number, fy: number) {
+    // Zoom toward a focal point — direct DOM, no React re-render
+    function applyZoom(newZoom: number, fx: number, fy: number, syncUI = false) {
       const clamped = clamp(newZoom, MIN_ZOOM, MAX_ZOOM)
       const oldZoom = zoomRef.current
       if (clamped === oldZoom) return
       const ratio = clamped / oldZoom
       const newSL = (scrollParent.scrollLeft + fx) * ratio - fx
       const newST = (scrollParent.scrollTop + fy) * ratio - fy
-      setZoom(clamped)
+      setZoomDirect(clamped)
       scrollParent.scrollLeft = Math.max(0, newSL)
       scrollParent.scrollTop = Math.max(0, newST)
+      if (syncUI) setZoomUI(clamped)
     }
     applyZoomRef.current = applyZoom
 
@@ -211,6 +220,7 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
     function onTouchEnd(e: TouchEvent) {
       if (e.touches.length === 0) {
         if (isPanning && lastTouch && Date.now() - lastTouch.t < 80) startMomentum()
+        setZoomUI(zoomRef.current) // sync UI after gesture
         panStart = null; isPanning = false; lastTouch = null; pinchRef.current = null
       }
     }
@@ -222,7 +232,7 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
       const scale = (e as Event & { scale: number }).scale
       applyZoom(gestureStartZoom * scale, scrollParent.clientWidth / 2, scrollParent.clientHeight / 2)
     }
-    function onGestureEnd(e: Event) { e.preventDefault() }
+    function onGestureEnd(e: Event) { e.preventDefault(); setZoomUI(zoomRef.current) }
 
     // Desktop: Ctrl+wheel — focal point = cursor position
     function onWheel(e: WheelEvent) {
@@ -253,18 +263,18 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
     }
   }, [])
 
-  // +/- buttons zoom toward viewport center
+  // +/- buttons zoom toward viewport center (sync UI immediately)
   const zoomIn = useCallback(() => {
     const sp = containerRef.current?.parentElement
-    if (sp) applyZoomRef.current(zoomRef.current + ZOOM_STEP, sp.clientWidth / 2, sp.clientHeight / 2)
+    if (sp) applyZoomRef.current(zoomRef.current + ZOOM_STEP, sp.clientWidth / 2, sp.clientHeight / 2, true)
   }, [])
   const zoomOut = useCallback(() => {
     const sp = containerRef.current?.parentElement
-    if (sp) applyZoomRef.current(zoomRef.current - ZOOM_STEP, sp.clientWidth / 2, sp.clientHeight / 2)
+    if (sp) applyZoomRef.current(zoomRef.current - ZOOM_STEP, sp.clientWidth / 2, sp.clientHeight / 2, true)
   }, [])
   const zoomReset = useCallback(() => {
     const sp = containerRef.current?.parentElement
-    if (sp) applyZoomRef.current(1, sp.clientWidth / 2, sp.clientHeight / 2)
+    if (sp) applyZoomRef.current(1, sp.clientWidth / 2, sp.clientHeight / 2, true)
   }, [])
 
   const center = persons.find(p => p.id === centerId)
@@ -320,9 +330,10 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
   return (
     <div ref={containerRef} className="relative" style={{ touchAction: 'none' }}>
       <div
+        ref={contentRef}
         key={centerId}
         className="flex flex-col items-center gap-1 pt-[50vh] pb-[50vh] px-[50vw] min-w-fit animate-tree-enter"
-        style={zoom !== 1 ? { transform: `scale(${zoom})`, transformOrigin: '0 0' } : undefined}
+        style={{ transformOrigin: '0 0' }}
       >
 
         {/* === ANCESTORS (slim: just couples, no siblings) === */}
@@ -467,7 +478,7 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
         >
           &minus;
         </button>
-        {zoom !== 1 && (
+        {zoomUI !== 1 && (
           <button
             onClick={zoomReset}
             className="w-10 h-10 rounded-full bg-card-bg border border-card-border/40 shadow-md
@@ -475,7 +486,7 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
                        hover:bg-accent hover:text-white active:scale-90 transition-all cursor-pointer"
             aria-label="Återställ zoom"
           >
-            {Math.round(zoom * 100)}%
+            {Math.round(zoomUI * 100)}%
           </button>
         )}
       </div>

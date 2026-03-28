@@ -116,73 +116,104 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
     return () => clearTimeout(timer)
   }, [centerId])
 
-  // Pinch-to-zoom (Safari gesture events + Android touch events) + Ctrl+wheel
+  // Free-form pan (no axis locking) + pinch zoom + momentum
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
+    const sp = el.parentElement
+    if (!sp) return
+    // Store in a const that TS knows is non-null in closures
+    const scrollParent: HTMLElement = sp
 
-    // Safari: gesturestart/gesturechange (works reliably for pinch on iOS)
+    const PAN_DEAD_ZONE = 5
+    let panStart: { x: number; y: number; sl: number; st: number } | null = null
+    let isPanning = false
+    let lastTouch: { x: number; y: number; t: number } | null = null
+    let velocity = { vx: 0, vy: 0 }
+    let momentumId: number | null = null
     let gestureStartZoom = 1
 
-    function onGestureStart(e: Event) {
-      e.preventDefault()
-      gestureStartZoom = zoomRef.current
+    function stopMomentum() {
+      if (momentumId !== null) { cancelAnimationFrame(momentumId); momentumId = null }
     }
 
-    function onGestureChange(e: Event) {
-      e.preventDefault()
-      const ge = e as Event & { scale: number }
-      setZoom(clamp(gestureStartZoom * ge.scale, MIN_ZOOM, MAX_ZOOM))
+    function startMomentum() {
+      const friction = 0.94
+      let vx = velocity.vx * 16, vy = velocity.vy * 16
+      function step() {
+        if (Math.abs(vx) < 0.3 && Math.abs(vy) < 0.3) { momentumId = null; return }
+        scrollParent.scrollLeft += vx
+        scrollParent.scrollTop += vy
+        vx *= friction; vy *= friction
+        momentumId = requestAnimationFrame(step)
+      }
+      stopMomentum()
+      momentumId = requestAnimationFrame(step)
     }
 
-    function onGestureEnd(e: Event) {
-      e.preventDefault()
-    }
-
-    // Android/Chrome: standard touch events for two-finger pinch
     function onTouchStart(e: TouchEvent) {
-      if (e.touches.length === 2) {
+      stopMomentum()
+      if (e.touches.length === 1) {
+        panStart = { x: e.touches[0].clientX, y: e.touches[0].clientY, sl: scrollParent.scrollLeft, st: scrollParent.scrollTop }
+        isPanning = false
+        lastTouch = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now() }
+        velocity = { vx: 0, vy: 0 }
+      } else if (e.touches.length === 2) {
         e.preventDefault()
-        pinchRef.current = {
-          startDist: getFingerDistance(e.touches[0], e.touches[1]),
-          startZoom: zoomRef.current,
-        }
+        panStart = null; isPanning = false
+        pinchRef.current = { startDist: getFingerDistance(e.touches[0], e.touches[1]), startZoom: zoomRef.current }
       }
     }
 
     function onTouchMove(e: TouchEvent) {
-      if (e.touches.length === 2 && pinchRef.current) {
+      if (e.touches.length === 1 && panStart) {
+        const x = e.touches[0].clientX, y = e.touches[0].clientY
+        const dx = panStart.x - x, dy = panStart.y - y
+        if (!isPanning && Math.abs(dx) < PAN_DEAD_ZONE && Math.abs(dy) < PAN_DEAD_ZONE) return
+        isPanning = true
+        e.preventDefault()
+        scrollParent.scrollLeft = panStart.sl + dx
+        scrollParent.scrollTop = panStart.st + dy
+        const now = Date.now()
+        if (lastTouch) {
+          const dt = now - lastTouch.t
+          if (dt > 0) velocity = { vx: (lastTouch.x - x) / dt, vy: (lastTouch.y - y) / dt }
+        }
+        lastTouch = { x, y, t: now }
+      } else if (e.touches.length === 2 && pinchRef.current) {
         e.preventDefault()
         const dist = getFingerDistance(e.touches[0], e.touches[1])
-        const newZoom = pinchRef.current.startZoom * (dist / pinchRef.current.startDist)
-        setZoom(clamp(newZoom, MIN_ZOOM, MAX_ZOOM))
+        setZoom(clamp(pinchRef.current.startZoom * (dist / pinchRef.current.startDist), MIN_ZOOM, MAX_ZOOM))
       }
     }
 
-    function onTouchEnd() {
-      pinchRef.current = null
+    function onTouchEnd(e: TouchEvent) {
+      if (e.touches.length === 0) {
+        if (isPanning && lastTouch && Date.now() - lastTouch.t < 80) startMomentum()
+        panStart = null; isPanning = false; lastTouch = null; pinchRef.current = null
+      }
     }
+
+    // Safari gesture events for pinch
+    function onGestureStart(e: Event) { e.preventDefault(); gestureStartZoom = zoomRef.current }
+    function onGestureChange(e: Event) { e.preventDefault(); setZoom(clamp(gestureStartZoom * (e as Event & { scale: number }).scale, MIN_ZOOM, MAX_ZOOM)) }
+    function onGestureEnd(e: Event) { e.preventDefault() }
 
     // Desktop: Ctrl+wheel / trackpad pinch
     function onWheel(e: WheelEvent) {
-      if (e.ctrlKey || e.metaKey) {
-        e.preventDefault()
-        setZoom(prev => clamp(prev - e.deltaY * 0.01, MIN_ZOOM, MAX_ZOOM))
-      }
+      if (e.ctrlKey || e.metaKey) { e.preventDefault(); setZoom(prev => clamp(prev - e.deltaY * 0.01, MIN_ZOOM, MAX_ZOOM)) }
     }
 
-    // Safari gesture events
     el.addEventListener('gesturestart', onGestureStart, { passive: false })
     el.addEventListener('gesturechange', onGestureChange, { passive: false })
     el.addEventListener('gestureend', onGestureEnd, { passive: false })
-    // Android touch events
     el.addEventListener('touchstart', onTouchStart, { passive: false })
     el.addEventListener('touchmove', onTouchMove, { passive: false })
     el.addEventListener('touchend', onTouchEnd)
-    // Desktop wheel
     el.addEventListener('wheel', onWheel, { passive: false })
 
     return () => {
+      stopMomentum()
       el.removeEventListener('gesturestart', onGestureStart)
       el.removeEventListener('gesturechange', onGestureChange)
       el.removeEventListener('gestureend', onGestureEnd)
@@ -248,10 +279,10 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
   }
 
   return (
-    <div ref={containerRef} className="relative" style={{ touchAction: 'pan-x pan-y' }}>
+    <div ref={containerRef} className="relative" style={{ touchAction: 'none' }}>
       <div
         key={centerId}
-        className="flex flex-col items-center gap-1 py-10 pb-20 px-4 min-w-fit animate-tree-enter"
+        className="flex flex-col items-center gap-1 pt-[15vh] pb-[30vh] px-[10vw] min-w-fit animate-tree-enter"
         style={zoom !== 1 ? { transform: `scale(${zoom})`, transformOrigin: 'center top' } : undefined}
       >
 

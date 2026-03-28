@@ -114,21 +114,18 @@ Connector-data kommer direkt från `PositionedFamilyConnectorV3` i layoutresulta
 
 **Modal på mobil:** Bottom sheet som glider upp från botten (`animate-slide-up`). Drag handle (grå pille) ovanför innehållet. Swipe ner (>100px) stänger. På desktop: centrerad dialog som tidigare.
 
-### PersonModal — två lägen
+### PersonModal — en vy, allt inline-redigerbart
 
-1. **Info med inline-redigering** (standard):
-   - Header med foto/initialer, namn, livstid, relationstyp + penna-ikon.
-   - `EditableDetailRow`-fält: tap för att redigera enskilt fält (autofocus, blur/Enter sparar lokalt).
-   - Tomma fält visar "+ Lägg till" i accent-färg.
-   - **Auto-save:** `dirty`-flagga spårar ändringar. Vid stängning anropas `onSave(formState)` automatiskt.
-   - Footer: "Lägg till släkting" + "Visa i trädet" (non-center).
+Ingen separat "redigera-mode" — alla fält redigeras direkt i samma vy:
 
-2. **Full redigering** (penna-ikon):
-   - Alla fält som inputs (inkl. namn med NameSuggestInput).
-   - Foto-upload, övrig information (stories), radera person.
-   - Explicit "Spara"/"Avbryt"/"Ta bort" i footer.
-
-3. **Lägg till släkting**: Öppnar AddRelativeModal med relationstypväljare.
+- **Namn** i header: tap → inline inputs (förnamn + efternamn). Blur/Enter sparar lokalt.
+- **Foto** i header: tap → öppnar filväljare. Foto-sektion under fälten visar thumbnails + upload-knapp + ta bort.
+- **Textfält** (`EditableDetailRow`): tap → fältet blir en input. Tomma fält visar "+ Lägg till".
+- **Stories** (`EditableStory`): tap → inline redigering av rubrik + text. "+ Lägg till" och "Ta bort" per story.
+- **Radera person**: röd länk längst ner med confirm-dialog.
+- **Auto-save:** `dirty`-flagga spårar ändringar. Vid stängning anropas `onSave(formState)` automatiskt.
+- Footer: "Lägg till släkting" + "Visa i trädet" (non-center).
+- **Lägg till släkting**: Öppnar AddRelativeModal med relationstypväljare.
 
 ## Fade-in-animation
 

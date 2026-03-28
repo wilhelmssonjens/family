@@ -1,7 +1,6 @@
 import { useState, useRef, useCallback } from 'react'
 import { Modal } from '../Modal/Modal'
-import { NameSuggestInput } from '../NameSuggestInput'
-import { formatLifespan, formatFullName, getInitials } from '../../utils/formatPerson'
+import { formatLifespan, getInitials } from '../../utils/formatPerson'
 import { compressImage } from '../../utils/compressImage'
 import type { Person, Story } from '../../types'
 
@@ -30,10 +29,10 @@ interface Props {
   onNavigate?: () => void
 }
 
-export function PersonModal({ person, persons, relationLabel, onClose, onSave, onDelete, onAddRelative, onNavigate }: Props) {
-  const [editing, setEditing] = useState(false)
+export function PersonModal({ person, relationLabel, onClose, onSave, onDelete, onAddRelative, onNavigate }: Props) {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [editingName, setEditingName] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const dirty = useRef(false)
   const [form, setForm] = useState<EditPersonData>({
@@ -50,49 +49,23 @@ export function PersonModal({ person, persons, relationLabel, onClose, onSave, o
     photos: [...person.photos],
   })
 
-  const fullName = formatFullName(person.firstName, person.lastName, person.birthName)
   const initials = getInitials(person.firstName, person.lastName)
   const lifespan = formatLifespan(person.birthDate, person.deathDate, person.birthPlace, person.deathPlace)
 
-  const inputClass = 'w-full px-2 py-1.5 text-sm font-sans border border-bg-secondary rounded bg-white text-text-primary placeholder:text-text-secondary/50 focus:outline-none focus:border-accent'
+  const inputClass = 'w-full px-2 py-1 text-sm font-sans border border-accent/60 rounded bg-white text-text-primary placeholder:text-text-secondary/50 focus:outline-none focus:border-accent'
 
   function updateField(field: keyof EditPersonData, value: string) {
     dirty.current = true
     setForm(prev => ({ ...prev, [field]: value }))
   }
 
-  // Auto-save on close if any inline field was changed
+  // Auto-save on close if any field was changed
   const handleClose = useCallback(() => {
     if (dirty.current && form.firstName.trim() && form.lastName.trim()) {
       onSave(form)
     }
     onClose()
   }, [form, onSave, onClose])
-
-  function handleFullSave() {
-    if (!form.firstName.trim() || !form.lastName.trim()) return
-    dirty.current = false // prevent double save
-    onSave(form)
-    onClose()
-  }
-
-  function handleCancel() {
-    dirty.current = false
-    setForm({
-      firstName: person.firstName,
-      lastName: person.lastName,
-      birthName: person.birthName ?? '',
-      birthDate: person.birthDate ?? '',
-      birthPlace: person.birthPlace ?? '',
-      deathDate: person.deathDate ?? '',
-      deathPlace: person.deathPlace ?? '',
-      occupation: person.occupation ?? '',
-      contactInfo: person.contactInfo ?? '',
-      stories: person.stories.length > 0 ? [...person.stories] : [],
-      photos: [...person.photos],
-    })
-    setEditing(false)
-  }
 
   function updateStory(index: number, field: 'title' | 'text', value: string) {
     dirty.current = true
@@ -141,185 +114,78 @@ export function PersonModal({ person, persons, relationLabel, onClose, onSave, o
     setForm(prev => ({ ...prev, photos: prev.photos.filter((_, i) => i !== index) }))
   }
 
-  // === FULL EDIT MODE (photos, stories, names, delete) ===
-  if (editing) {
-    return (
-      <Modal onClose={handleCancel}>
-        <div className="p-4 sm:p-6">
-          {/* Header */}
-          <div className="flex items-center gap-4 mb-5">
-            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl bg-bg-secondary border-2 border-card-border flex items-center justify-center flex-shrink-0">
-              <span className="text-accent font-sans font-semibold text-lg sm:text-xl">{initials}</span>
-            </div>
-            <h2 className="font-serif font-bold text-text-primary text-lg">Redigera</h2>
-          </div>
+  // Hidden file input (shared)
+  const fileInput = (
+    <input
+      ref={fileInputRef}
+      type="file"
+      accept="image/*"
+      onChange={handlePhotoUpload}
+      className="hidden"
+    />
+  )
 
-          {/* Edit form */}
-          <div className="space-y-3 mb-5">
-            <div className="flex gap-3 items-center text-sm font-sans">
-              <label className="text-text-secondary w-24 sm:w-28 flex-shrink-0">Förnamn</label>
-              <NameSuggestInput className={inputClass} value={form.firstName} onChange={(v) => updateField('firstName', v)} suggestions={persons.map(p => p.firstName)} required />
-            </div>
-            <div className="flex gap-3 items-center text-sm font-sans">
-              <label className="text-text-secondary w-24 sm:w-28 flex-shrink-0">Efternamn</label>
-              <NameSuggestInput className={inputClass} value={form.lastName} onChange={(v) => updateField('lastName', v)} suggestions={persons.map(p => p.lastName)} required />
-            </div>
-            <EditField label="Födnamn" value={form.birthName} onChange={(v) => updateField('birthName', v)} inputClass={inputClass} placeholder="Om annat än nuvarande" />
-            <EditField label="Födelsedatum" value={form.birthDate} onChange={(v) => updateField('birthDate', v)} inputClass={inputClass} placeholder="ÅÅÅÅ-MM-DD" />
-            <EditField label="Födelseort" value={form.birthPlace} onChange={(v) => updateField('birthPlace', v)} inputClass={inputClass} />
-            <EditField label="Dödsdatum" value={form.deathDate} onChange={(v) => updateField('deathDate', v)} inputClass={inputClass} placeholder="ÅÅÅÅ-MM-DD" />
-            <EditField label="Dödsort" value={form.deathPlace} onChange={(v) => updateField('deathPlace', v)} inputClass={inputClass} />
-            <EditField label="Yrke" value={form.occupation} onChange={(v) => updateField('occupation', v)} inputClass={inputClass} />
-            <EditField label="Kontakt" value={form.contactInfo} onChange={(v) => updateField('contactInfo', v)} inputClass={inputClass} />
-          </div>
-
-          {/* Photos */}
-          <div className="mb-5">
-            <h3 className="font-serif font-semibold text-text-primary text-sm mb-2">Foto</h3>
-            {form.photos.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-3">
-                {form.photos.map((url, i) => (
-                  <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-bg-secondary">
-                    <img src={photoSrc(url)} alt="" className="w-full h-full object-cover" />
-                    <button
-                      type="button"
-                      onClick={() => removePhoto(i)}
-                      className="absolute top-0 right-0 w-5 h-5 bg-red-600 text-white text-xs rounded-bl-lg flex items-center justify-center hover:bg-red-700"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handlePhotoUpload}
-              className="hidden"
-            />
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-              className="text-xs font-sans text-accent hover:text-accent-dark transition-colors disabled:opacity-50"
-            >
-              {uploading ? 'Laddar upp...' : '+ Lägg till foto'}
-            </button>
-          </div>
-
-          {/* Övrig information */}
-          <div className="mb-5">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="font-serif font-semibold text-text-primary text-sm">Övrig information</h3>
-              <button
-                type="button"
-                onClick={addStory}
-                className="text-xs font-sans text-accent hover:text-accent-dark transition-colors"
-              >
-                + Lägg till
-              </button>
-            </div>
-            {form.stories.map((story, i) => (
-              <div key={i} className="mb-3 p-3 border border-bg-secondary rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-sans text-text-secondary">Info {i + 1}</span>
-                  <button
-                    type="button"
-                    onClick={() => removeStory(i)}
-                    className="text-xs font-sans text-red-500 hover:text-red-700 transition-colors"
-                  >
-                    Ta bort
-                  </button>
-                </div>
-                <input
-                  className={`${inputClass} mb-2`}
-                  placeholder="Rubrik (valfritt)"
-                  value={story.title}
-                  onChange={(e) => updateStory(i, 'title', e.target.value)}
-                />
-                <textarea
-                  className={`${inputClass} resize-none`}
-                  rows={3}
-                  placeholder="Skriv här..."
-                  value={story.text}
-                  onChange={(e) => updateStory(i, 'text', e.target.value)}
-                />
-              </div>
-            ))}
-          </div>
-
-          {/* Delete confirmation */}
-          {confirmDelete && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-sm font-sans text-red-800 mb-2">
-                Är du säker på att du vill ta bort {person.firstName}? Alla relationer tas också bort.
-              </p>
-              <div className="flex gap-2">
-                <button
-                  onClick={onDelete}
-                  className="text-sm font-sans bg-red-600 text-white px-3 py-1.5 rounded-lg hover:bg-red-700 transition-colors"
-                >
-                  Ja, ta bort
-                </button>
-                <button
-                  onClick={() => setConfirmDelete(false)}
-                  className="text-sm font-sans text-text-secondary px-3 py-1.5 rounded-lg hover:bg-bg-secondary transition-colors"
-                >
-                  Avbryt
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Actions */}
-          <div className="flex gap-2 pt-2 border-t border-bg-secondary">
-            <button
-              onClick={handleFullSave}
-              className="flex-1 text-sm font-sans bg-accent text-white py-2 rounded-lg hover:bg-accent-dark transition-colors"
-            >
-              Spara
-            </button>
-            <button
-              onClick={handleCancel}
-              className="flex-1 text-sm font-sans text-text-secondary py-2 rounded-lg hover:bg-bg-secondary transition-colors"
-            >
-              Avbryt
-            </button>
-            {!confirmDelete && (
-              <button
-                onClick={() => setConfirmDelete(true)}
-                className="text-sm font-sans text-red-600 px-3 py-2 rounded-lg hover:bg-red-50 transition-colors"
-              >
-                Ta bort
-              </button>
-            )}
-          </div>
-        </div>
-      </Modal>
-    )
-  }
-
-  // === DEFAULT VIEW: inline-editable fields ===
   return (
     <Modal onClose={handleClose}>
       <div className="p-4 sm:p-6">
-        {/* Header: photo + name + edit icon */}
+        {fileInput}
+
+        {/* Header: photo + name (both tappable) */}
         <div className="flex items-start gap-3 sm:gap-4 mb-5">
-          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-bg-secondary border-2 border-card-border flex items-center justify-center flex-shrink-0 overflow-hidden">
-            {person.photos.length > 0 ? (
+          {/* Photo avatar — tap to upload */}
+          <div
+            className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-bg-secondary border-2 border-card-border flex items-center justify-center flex-shrink-0 overflow-hidden cursor-pointer group relative"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            {form.photos.length > 0 ? (
               <img
-                src={photoSrc(person.photos[0])}
+                src={photoSrc(form.photos[0])}
                 alt={person.firstName}
                 className="w-full h-full object-cover"
               />
             ) : (
               <span className="text-accent font-sans font-semibold text-xl sm:text-2xl">{initials}</span>
             )}
+            {/* Camera overlay on hover */}
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 flex items-center justify-center transition-colors">
+              <span className="text-white/0 group-hover:text-white/90 text-lg transition-colors">+</span>
+            </div>
           </div>
+
+          {/* Name — tappable to edit inline */}
           <div className="min-w-0 flex-1">
-            <h2 className="font-serif font-bold text-text-primary text-lg leading-tight">{fullName}</h2>
+            {editingName ? (
+              <div className="space-y-1.5">
+                <input
+                  className={`${inputClass} font-serif font-bold text-base`}
+                  value={form.firstName}
+                  onChange={(e) => updateField('firstName', e.target.value)}
+                  onBlur={() => setEditingName(false)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') setEditingName(false) }}
+                  placeholder="Förnamn"
+                  autoFocus
+                />
+                <input
+                  className={`${inputClass} font-serif`}
+                  value={form.lastName}
+                  onChange={(e) => updateField('lastName', e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') setEditingName(false) }}
+                  placeholder="Efternamn"
+                />
+              </div>
+            ) : (
+              <div
+                className="cursor-pointer group"
+                onClick={() => setEditingName(true)}
+              >
+                <h2 className="font-serif font-bold text-text-primary text-lg leading-tight group-hover:text-accent transition-colors">
+                  {form.firstName} {form.lastName}
+                  <span className="text-text-secondary/0 group-hover:text-text-secondary/50 text-xs ml-1.5 font-sans font-normal transition-colors">
+                    &#9998;
+                  </span>
+                </h2>
+              </div>
+            )}
             {lifespan && (
               <p className="text-text-secondary text-sm font-sans mt-1">{lifespan}</p>
             )}
@@ -327,17 +193,6 @@ export function PersonModal({ person, persons, relationLabel, onClose, onSave, o
               <p className="text-accent text-xs font-sans mt-1">{relationLabel}</p>
             )}
           </div>
-          {/* Pencil icon — opens full edit mode */}
-          <button
-            onClick={() => setEditing(true)}
-            className="flex-shrink-0 w-8 h-8 rounded-lg bg-bg-secondary/80 hover:bg-accent hover:text-white
-                       flex items-center justify-center transition-colors text-text-secondary"
-            title="Redigera alla fält"
-          >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M10 1.5l2.5 2.5M1 13l.9-3.6L10.3 1a1.4 1.4 0 012 0l.7.7a1.4 1.4 0 010 2L4.6 12.1 1 13z" />
-            </svg>
-          </button>
         </div>
 
         {/* Inline-editable detail fields */}
@@ -351,42 +206,113 @@ export function PersonModal({ person, persons, relationLabel, onClose, onSave, o
           <EditableDetailRow label="Kontakt" value={form.contactInfo} onChange={(v) => updateField('contactInfo', v)} />
         </div>
 
-        {/* Övrig information */}
-        {form.stories.length > 0 && (
-          <div className="mb-5">
-            <h3 className="font-serif font-semibold text-text-primary text-sm mb-2">Övrig information</h3>
-            <div className="space-y-3">
-              {form.stories.map((story, i) => (
-                <div key={i}>
-                  {story.title && (
-                    <p className="text-sm font-sans font-medium text-text-primary mb-0.5">{story.title}</p>
-                  )}
-                  <p className="text-sm font-sans text-text-secondary leading-relaxed whitespace-pre-wrap">
-                    {story.text}
-                  </p>
-                </div>
-              ))}
-            </div>
+        {/* Photos section — always visible */}
+        <div className="mb-5">
+          <h3 className="font-serif font-semibold text-text-primary text-sm mb-2">Foto</h3>
+          <div className="flex flex-wrap gap-2">
+            {form.photos.map((url, i) => (
+              <div key={i} className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-lg overflow-hidden border border-bg-secondary">
+                <img src={photoSrc(url)} alt="" className="w-full h-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => removePhoto(i)}
+                  className="absolute top-0 right-0 w-5 h-5 bg-red-600 text-white text-xs rounded-bl-lg flex items-center justify-center hover:bg-red-700 cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+            {/* Upload button */}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="w-14 h-14 sm:w-16 sm:h-16 rounded-lg border-2 border-dashed border-card-border/40 flex items-center justify-center
+                         text-text-secondary hover:border-accent hover:text-accent transition-colors cursor-pointer disabled:opacity-50"
+            >
+              {uploading ? (
+                <span className="text-xs font-sans">...</span>
+              ) : (
+                <span className="text-xl leading-none">+</span>
+              )}
+            </button>
           </div>
-        )}
+        </div>
+
+        {/* Stories section — always visible with inline editing */}
+        <div className="mb-5">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="font-serif font-semibold text-text-primary text-sm">Övrig information</h3>
+            <button
+              type="button"
+              onClick={addStory}
+              className="text-xs font-sans text-accent hover:text-accent-dark transition-colors cursor-pointer"
+            >
+              + Lägg till
+            </button>
+          </div>
+          {form.stories.map((story, i) => (
+            <EditableStory
+              key={i}
+              story={story}
+              index={i}
+              onUpdateTitle={(v) => updateStory(i, 'title', v)}
+              onUpdateText={(v) => updateStory(i, 'text', v)}
+              onRemove={() => removeStory(i)}
+            />
+          ))}
+          {form.stories.length === 0 && (
+            <p className="text-sm font-sans text-text-secondary/60 italic">Inga tillagda</p>
+          )}
+        </div>
 
         {/* Actions */}
         <div className="flex gap-2 pt-2 border-t border-bg-secondary">
           <button
             onClick={onAddRelative}
-            className="flex-1 text-sm font-sans bg-accent text-white py-2 rounded-lg hover:bg-accent-dark transition-colors"
+            className="flex-1 text-sm font-sans bg-accent text-white py-2 rounded-lg hover:bg-accent-dark transition-colors cursor-pointer"
           >
             Lägg till släkting
           </button>
           {onNavigate && (
             <button
               onClick={onNavigate}
-              className="flex-1 text-sm font-sans bg-bg-secondary text-text-primary py-2 rounded-lg hover:bg-bg-secondary/70 transition-colors"
+              className="flex-1 text-sm font-sans bg-bg-secondary text-text-primary py-2 rounded-lg hover:bg-bg-secondary/70 transition-colors cursor-pointer"
             >
               Visa i trädet
             </button>
           )}
         </div>
+
+        {/* Delete */}
+        {confirmDelete ? (
+          <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-sm font-sans text-red-800 mb-2">
+              Är du säker på att du vill ta bort {person.firstName}? Alla relationer tas också bort.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={onDelete}
+                className="text-sm font-sans bg-red-600 text-white px-3 py-1.5 rounded-lg hover:bg-red-700 transition-colors cursor-pointer"
+              >
+                Ja, ta bort
+              </button>
+              <button
+                onClick={() => setConfirmDelete(false)}
+                className="text-sm font-sans text-text-secondary px-3 py-1.5 rounded-lg hover:bg-bg-secondary transition-colors cursor-pointer"
+              >
+                Avbryt
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => setConfirmDelete(true)}
+            className="mt-3 w-full text-center text-xs font-sans text-red-500/70 hover:text-red-600 transition-colors cursor-pointer py-1"
+          >
+            Ta bort person
+          </button>
+        )}
       </div>
     </Modal>
   )
@@ -447,22 +373,69 @@ function EditableDetailRow({ label, value, onChange, placeholder }: {
   )
 }
 
-function EditField({ label, value, onChange, inputClass, placeholder }: {
-  label: string
-  value: string
-  onChange: (value: string) => void
-  inputClass: string
-  placeholder?: string
+/** Inline-editable story: tap to edit title/text, blur to save */
+function EditableStory({ story, index, onUpdateTitle, onUpdateText, onRemove }: {
+  story: Story
+  index: number
+  onUpdateTitle: (value: string) => void
+  onUpdateText: (value: string) => void
+  onRemove: () => void
 }) {
+  const [editing, setEditing] = useState(false)
+
+  if (editing) {
+    return (
+      <div className="mb-3 p-3 border border-accent/30 rounded-lg bg-white">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-sans text-text-secondary">Info {index + 1}</span>
+          <button
+            type="button"
+            onClick={onRemove}
+            className="text-xs font-sans text-red-500 hover:text-red-700 transition-colors cursor-pointer"
+          >
+            Ta bort
+          </button>
+        </div>
+        <input
+          className="w-full px-2 py-1 mb-2 text-sm font-sans border border-accent/60 rounded bg-white text-text-primary placeholder:text-text-secondary/50 focus:outline-none focus:border-accent"
+          placeholder="Rubrik (valfritt)"
+          value={story.title}
+          onChange={(e) => onUpdateTitle(e.target.value)}
+        />
+        <textarea
+          className="w-full px-2 py-1 text-sm font-sans border border-accent/60 rounded bg-white text-text-primary placeholder:text-text-secondary/50 focus:outline-none focus:border-accent resize-none"
+          rows={3}
+          placeholder="Skriv här..."
+          value={story.text}
+          onChange={(e) => onUpdateText(e.target.value)}
+          onBlur={() => { if (story.text.trim()) setEditing(false) }}
+          autoFocus
+        />
+        <button
+          type="button"
+          onClick={() => setEditing(false)}
+          className="mt-2 text-xs font-sans text-accent hover:text-accent-dark transition-colors cursor-pointer"
+        >
+          Klar
+        </button>
+      </div>
+    )
+  }
+
   return (
-    <div className="flex gap-3 items-center text-sm font-sans">
-      <label className="text-text-secondary w-24 sm:w-28 flex-shrink-0">{label}</label>
-      <input
-        className={inputClass}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-      />
+    <div
+      className="mb-2 p-2 rounded-lg group cursor-pointer hover:bg-bg-secondary/50 transition-colors"
+      onClick={() => setEditing(true)}
+    >
+      {story.title && (
+        <p className="text-sm font-sans font-medium text-text-primary mb-0.5">{story.title}</p>
+      )}
+      <p className="text-sm font-sans text-text-secondary leading-relaxed whitespace-pre-wrap line-clamp-3">
+        {story.text || <span className="italic text-text-secondary/50">Tom</span>}
+      </p>
+      <span className="text-text-secondary/0 group-hover:text-text-secondary/50 text-xs transition-colors">
+        &#9998; redigera
+      </span>
     </div>
   )
 }

@@ -37,6 +37,15 @@
   animation: slide-up 0.25s ease-out;
 }
 
+@keyframes tree-enter {
+  from { opacity: 0; transform: scale(0.96) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.animate-tree-enter {
+  animation: tree-enter 0.3s ease-out;
+}
+
 /* Prevent text selection on mobile during drag */
 svg {
   -webkit-user-select: none;

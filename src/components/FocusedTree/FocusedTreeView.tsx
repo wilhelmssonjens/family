@@ -99,12 +99,14 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
   const navigate = useNavigate()
   const graph = useMemo(() => buildFamilyGraph(persons, relationships), [persons, relationships])
 
-  // Zoom state
+  // Zoom state — reset on center change
   const [zoom, setZoom] = useState(1)
   const containerRef = useRef<HTMLDivElement>(null)
   const zoomRef = useRef(1)
   const pinchRef = useRef<{ startDist: number; startZoom: number } | null>(null)
   zoomRef.current = zoom
+
+  useEffect(() => { setZoom(1) }, [centerId])
 
   // Pinch-to-zoom (Safari gesture events + Android touch events) + Ctrl+wheel
   useEffect(() => {
@@ -240,7 +242,8 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
   return (
     <div ref={containerRef} className="relative" style={{ touchAction: 'pan-x pan-y' }}>
       <div
-        className="flex flex-col items-center gap-1 py-10 pb-20 px-4 min-w-fit"
+        key={centerId}
+        className="flex flex-col items-center gap-1 py-10 pb-20 px-4 min-w-fit animate-tree-enter"
         style={zoom !== 1 ? { transform: `scale(${zoom})`, transformOrigin: 'center top' } : undefined}
       >
 

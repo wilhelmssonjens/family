@@ -67,16 +67,16 @@ export function PersonCard({ person, isCenter, onNavigate, onShowInfo }: Props) 
         </div>
       </div>
 
-      {/* Navigate chevron — non-center cards only */}
+      {/* Navigate button — non-center cards only */}
       {!isCenter && onNavigate && (
         <button
           onClick={(e) => { e.stopPropagation(); onNavigate() }}
-          className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-card-bg border border-card-border/60
+          className="absolute -top-2 -right-2 w-7 h-7 sm:w-6 sm:h-6 rounded-full bg-card-bg border border-card-border/60
                      flex items-center justify-center shadow-sm
-                     text-text-secondary text-[9px] font-sans leading-none
-                     opacity-40 sm:opacity-0 sm:group-hover:opacity-100
+                     text-accent text-xs sm:text-[10px] font-sans font-bold leading-none
+                     opacity-60 sm:opacity-0 sm:group-hover:opacity-100
                      hover:bg-accent hover:text-white hover:border-accent
-                     transition-all duration-150 cursor-pointer"
+                     active:scale-90 transition-all duration-150 cursor-pointer"
           title="Centrera"
         >
           &rsaquo;

@@ -52,6 +52,9 @@ export function PersonModal({ person, relationLabel, onClose, onSave, onDelete, 
   const initials = getInitials(person.firstName, person.lastName)
   const lifespan = formatLifespan(person.birthDate, person.deathDate, person.birthPlace, person.deathPlace)
 
+  // Flatten stories into a single text block for display
+  const notesText = form.stories.map(s => [s.title, s.text].filter(Boolean).join(': ')).join('\n\n')
+
   const inputClass = 'w-full px-2 py-1 text-sm font-sans border border-accent/60 rounded bg-white text-text-primary placeholder:text-text-secondary/50 focus:outline-none focus:border-accent'
 
   function updateField(field: keyof EditPersonData, value: string) {
@@ -66,24 +69,6 @@ export function PersonModal({ person, relationLabel, onClose, onSave, onDelete, 
     }
     onClose()
   }, [form, onSave, onClose])
-
-  function updateStory(index: number, field: 'title' | 'text', value: string) {
-    dirty.current = true
-    setForm(prev => ({
-      ...prev,
-      stories: prev.stories.map((s, i) => i === index ? { ...s, [field]: value } : s),
-    }))
-  }
-
-  function addStory() {
-    dirty.current = true
-    setForm(prev => ({ ...prev, stories: [...prev.stories, { title: '', text: '' }] }))
-  }
-
-  function removeStory(index: number) {
-    dirty.current = true
-    setForm(prev => ({ ...prev, stories: prev.stories.filter((_, i) => i !== index) }))
-  }
 
   async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -127,8 +112,21 @@ export function PersonModal({ person, relationLabel, onClose, onSave, onDelete, 
 
   return (
     <Modal onClose={handleClose}>
-      <div className="p-4 sm:p-6">
+      <div className="p-4 sm:p-6 relative">
         {fileInput}
+
+        {/* Close button */}
+        <button
+          onClick={handleClose}
+          className="absolute top-3 right-3 w-8 h-8 rounded-full bg-bg-secondary/80 hover:bg-text-secondary/20
+                     flex items-center justify-center text-text-secondary hover:text-text-primary
+                     transition-colors cursor-pointer z-10"
+          aria-label="Stäng"
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <path d="M2 2l10 10M12 2L2 12" />
+          </svg>
+        </button>
 
         {/* Header: photo + name (both tappable) */}
         <div className="flex items-start gap-3 sm:gap-4 mb-5">
@@ -239,31 +237,22 @@ export function PersonModal({ person, relationLabel, onClose, onSave, onDelete, 
           </div>
         </div>
 
-        {/* Stories section — always visible with inline editing */}
+        {/* Notes — single editable text field */}
         <div className="mb-5">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="font-serif font-semibold text-text-primary text-sm">Övrig information</h3>
-            <button
-              type="button"
-              onClick={addStory}
-              className="text-xs font-sans text-accent hover:text-accent-dark transition-colors cursor-pointer"
-            >
-              + Lägg till
-            </button>
-          </div>
-          {form.stories.map((story, i) => (
-            <EditableStory
-              key={i}
-              story={story}
-              index={i}
-              onUpdateTitle={(v) => updateStory(i, 'title', v)}
-              onUpdateText={(v) => updateStory(i, 'text', v)}
-              onRemove={() => removeStory(i)}
-            />
-          ))}
-          {form.stories.length === 0 && (
-            <p className="text-sm font-sans text-text-secondary/60 italic">Inga tillagda</p>
-          )}
+          <h3 className="font-serif font-semibold text-text-primary text-sm mb-2">Övrig information</h3>
+          <textarea
+            className="w-full px-3 py-2 text-sm font-sans border border-bg-secondary rounded-lg bg-white text-text-primary placeholder:text-text-secondary/50 focus:outline-none focus:border-accent resize-none"
+            rows={3}
+            placeholder="Skriv fritt — anekdoter, minnen, anteckningar..."
+            value={notesText}
+            onChange={(e) => {
+              dirty.current = true
+              setForm(prev => ({
+                ...prev,
+                stories: [{ title: '', text: e.target.value }],
+              }))
+            }}
+          />
         </div>
 
         {/* Actions */}
@@ -373,69 +362,3 @@ function EditableDetailRow({ label, value, onChange, placeholder }: {
   )
 }
 
-/** Inline-editable story: tap to edit title/text, blur to save */
-function EditableStory({ story, index, onUpdateTitle, onUpdateText, onRemove }: {
-  story: Story
-  index: number
-  onUpdateTitle: (value: string) => void
-  onUpdateText: (value: string) => void
-  onRemove: () => void
-}) {
-  const [editing, setEditing] = useState(false)
-
-  if (editing) {
-    return (
-      <div className="mb-3 p-3 border border-accent/30 rounded-lg bg-white">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-sans text-text-secondary">Info {index + 1}</span>
-          <button
-            type="button"
-            onClick={onRemove}
-            className="text-xs font-sans text-red-500 hover:text-red-700 transition-colors cursor-pointer"
-          >
-            Ta bort
-          </button>
-        </div>
-        <input
-          className="w-full px-2 py-1 mb-2 text-sm font-sans border border-accent/60 rounded bg-white text-text-primary placeholder:text-text-secondary/50 focus:outline-none focus:border-accent"
-          placeholder="Rubrik (valfritt)"
-          value={story.title}
-          onChange={(e) => onUpdateTitle(e.target.value)}
-        />
-        <textarea
-          className="w-full px-2 py-1 text-sm font-sans border border-accent/60 rounded bg-white text-text-primary placeholder:text-text-secondary/50 focus:outline-none focus:border-accent resize-none"
-          rows={3}
-          placeholder="Skriv här..."
-          value={story.text}
-          onChange={(e) => onUpdateText(e.target.value)}
-          onBlur={() => { if (story.text.trim()) setEditing(false) }}
-          autoFocus
-        />
-        <button
-          type="button"
-          onClick={() => setEditing(false)}
-          className="mt-2 text-xs font-sans text-accent hover:text-accent-dark transition-colors cursor-pointer"
-        >
-          Klar
-        </button>
-      </div>
-    )
-  }
-
-  return (
-    <div
-      className="mb-2 p-2 rounded-lg group cursor-pointer hover:bg-bg-secondary/50 transition-colors"
-      onClick={() => setEditing(true)}
-    >
-      {story.title && (
-        <p className="text-sm font-sans font-medium text-text-primary mb-0.5">{story.title}</p>
-      )}
-      <p className="text-sm font-sans text-text-secondary leading-relaxed whitespace-pre-wrap line-clamp-3">
-        {story.text || <span className="italic text-text-secondary/50">Tom</span>}
-      </p>
-      <span className="text-text-secondary/0 group-hover:text-text-secondary/50 text-xs transition-colors">
-        &#9998; redigera
-      </span>
-    </div>
-  )
-}

@@ -77,9 +77,10 @@ export function Modal({ children, onClose }: Props) {
       <div className="absolute inset-0 bg-black/30" />
       <div
         ref={sheetRef}
-        className="relative bg-card-bg w-full max-h-[85vh] sm:max-h-[90vh] overflow-y-auto
+        className="relative bg-card-bg w-full max-h-[75dvh] sm:max-h-[90vh] overflow-y-auto
                    rounded-t-2xl sm:rounded-xl sm:max-w-md
-                   animate-slide-up sm:animate-in shadow-lg"
+                   animate-slide-up sm:animate-in shadow-lg
+                   pb-[env(safe-area-inset-bottom)]"
         onClick={(e) => e.stopPropagation()}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}

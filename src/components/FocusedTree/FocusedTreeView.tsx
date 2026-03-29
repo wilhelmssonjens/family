@@ -43,9 +43,13 @@ function collectAncestorChain(personId: string, graph: FamilyGraph): { person: P
     const parent = parents[0]
     const otherParent = parents[1] ?? null
     const partnerId = otherParent?.id
-    // Get siblings of the blood-line ancestor (exclude their partner if it happens to appear)
-    const siblings = getSiblings(graph, parent.id).filter(s => s.id !== partnerId)
-    chain.push({ person: parent, partner: otherParent, siblings })
+    // Get siblings of BOTH the blood-line ancestor AND their partner
+    const sibs = getSiblings(graph, parent.id).filter(s => s.id !== partnerId)
+    if (otherParent) {
+      const partnerSibs = getSiblings(graph, otherParent.id).filter(s => s.id !== parent.id)
+      sibs.push(...partnerSibs)
+    }
+    chain.push({ person: parent, partner: otherParent, siblings: sibs })
     currentId = parent.id
   }
 
@@ -294,9 +298,10 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
   if (parents.length >= 2) {
     const p0partner = getPartners(graph, parents[0].id).find(p => p.id === parents[1].id) ? parents[1] : null
     if (p0partner) {
-      // Parents are partners — show as one pair with the first parent's siblings
-      const sibs = getSiblings(graph, parents[0].id).filter(s => s.id !== p0partner.id)
-      parentPairs.push({ person: parents[0], partner: p0partner, siblings: sibs })
+      // Parents are partners — show siblings of BOTH parents
+      const sibs0 = getSiblings(graph, parents[0].id).filter(s => s.id !== p0partner.id)
+      const sibs1 = getSiblings(graph, parents[1].id).filter(s => s.id !== parents[0].id)
+      parentPairs.push({ person: parents[0], partner: p0partner, siblings: [...sibs0, ...sibs1] })
     } else {
       parentPairs.push({ person: parents[0], partner: getPartners(graph, parents[0].id)[0] ?? null, siblings: getSiblings(graph, parents[0].id) })
       parentPairs.push({ person: parents[1], partner: getPartners(graph, parents[1].id)[0] ?? null, siblings: getSiblings(graph, parents[1].id) })

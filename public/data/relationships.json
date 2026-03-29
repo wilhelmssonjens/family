@@ -552,5 +552,10 @@
     "type": "sibling",
     "from": "erik-oleskog",
     "to": "birger-oleskog"
+  },
+  {
+    "type": "sibling",
+    "from": "erik-oleskog",
+    "to": "birger-oleskog-2"
   }
 ]

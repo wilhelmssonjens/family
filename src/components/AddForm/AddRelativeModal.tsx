@@ -97,7 +97,8 @@ export function AddRelativeModal({ relatedPersonName, relatedPersonId, persons, 
     })
   }
 
-  const inputClass = 'w-full px-2 py-1.5 text-sm font-sans border border-bg-secondary rounded bg-white text-text-primary placeholder:text-text-secondary/50 focus:outline-none focus:border-accent'
+  // text-base (16px) prevents Safari auto-zoom on input focus
+  const inputClass = 'w-full px-2 py-1.5 text-base font-sans border border-bg-secondary rounded bg-white text-text-primary placeholder:text-text-secondary/50 focus:outline-none focus:border-accent'
 
   return (
     <Modal onClose={onCancel}>

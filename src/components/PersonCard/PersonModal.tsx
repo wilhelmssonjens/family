@@ -56,7 +56,8 @@ export function PersonModal({ person, relationLabel, onClose, onSave, onDelete, 
   // Flatten stories into a single text block for display
   const notesText = form.stories.map(s => [s.title, s.text].filter(Boolean).join(': ')).join('\n\n')
 
-  const inputClass = 'w-full px-2 py-1 text-sm font-sans border border-accent/60 rounded bg-white text-text-primary placeholder:text-text-secondary/50 focus:outline-none focus:border-accent'
+  // text-base (16px) prevents Safari auto-zoom on input focus
+  const inputClass = 'w-full px-2 py-1.5 text-base font-sans border border-accent/60 rounded bg-white text-text-primary placeholder:text-text-secondary/50 focus:outline-none focus:border-accent'
 
   function updateField(field: keyof EditPersonData, value: string) {
     dirty.current = true
@@ -255,7 +256,7 @@ export function PersonModal({ person, relationLabel, onClose, onSave, onDelete, 
         <div className="mb-5">
           <h3 className="font-serif font-semibold text-text-primary text-sm mb-2">Övrig information</h3>
           <textarea
-            className="w-full px-3 py-2 text-sm font-sans border border-bg-secondary rounded-lg bg-white text-text-primary placeholder:text-text-secondary/50 focus:outline-none focus:border-accent resize-none"
+            className="w-full px-3 py-2 text-base font-sans border border-bg-secondary rounded-lg bg-white text-text-primary placeholder:text-text-secondary/50 focus:outline-none focus:border-accent resize-none"
             rows={3}
             placeholder="Skriv fritt — anekdoter, minnen, anteckningar..."
             value={notesText}
@@ -346,7 +347,7 @@ function EditableDetailRow({ label, value, onChange, placeholder }: {
       <div className="flex gap-3 items-center text-sm font-sans">
         <span className="text-text-secondary w-24 sm:w-28 flex-shrink-0">{label}</span>
         <input
-          className="w-full px-2 py-1 text-sm font-sans border border-accent/60 rounded bg-white text-text-primary placeholder:text-text-secondary/50 focus:outline-none focus:border-accent"
+          className="w-full px-2 py-1.5 text-base font-sans border border-accent/60 rounded bg-white text-text-primary placeholder:text-text-secondary/50 focus:outline-none focus:border-accent"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onBlur={commit}

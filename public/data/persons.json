@@ -1276,22 +1276,6 @@
     "familySide": "center"
   },
   {
-    "id": "margareta-skogshejd",
-    "firstName": "Margareta",
-    "lastName": "Skogshejd",
-    "birthName": null,
-    "birthDate": null,
-    "birthPlace": null,
-    "deathDate": null,
-    "deathPlace": null,
-    "gender": "female",
-    "occupation": null,
-    "photos": [],
-    "stories": [],
-    "contactInfo": null,
-    "familySide": "center"
-  },
-  {
     "id": "brita-skogsheid",
     "firstName": "Brita",
     "lastName": "Skogsheid",

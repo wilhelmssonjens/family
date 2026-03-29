@@ -1391,5 +1391,26 @@
     "stories": [],
     "contactInfo": null,
     "familySide": "center"
+  },
+  {
+    "id": "augustwilhelm-svensson",
+    "firstName": "August Wilhelm",
+    "lastName": "Svensson",
+    "birthName": null,
+    "birthDate": "1898",
+    "birthPlace": null,
+    "deathDate": null,
+    "deathPlace": "Växjö",
+    "gender": "male",
+    "occupation": "Lanthandlare i Korrö och Linneryd",
+    "photos": [],
+    "stories": [
+      {
+        "title": "Berättelse",
+        "text": "Jägare"
+      }
+    ],
+    "contactInfo": null,
+    "familySide": "center"
   }
 ]

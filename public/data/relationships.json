@@ -597,5 +597,10 @@
     "type": "sibling",
     "from": "birgit-oleskog",
     "to": "anna-lisa-trdgrd"
+  },
+  {
+    "type": "parent",
+    "from": "augustwilhelm-svensson",
+    "to": "birgit-oleskog"
   }
 ]

@@ -607,5 +607,11 @@
     "type": "parent",
     "from": "berta-svensson",
     "to": "birgit-oleskog"
+  },
+  {
+    "type": "partner",
+    "from": "margareta-persson",
+    "to": "rune-persson",
+    "status": "current"
   }
 ]

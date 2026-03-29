@@ -141,7 +141,7 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
   useEffect(() => {
     if (momentumIdRef.current !== null) { cancelAnimationFrame(momentumIdRef.current); momentumIdRef.current = null }
     zoomRef.current = 1
-    if (contentRef.current) contentRef.current.style.zoom = '1'
+    if (contentRef.current) contentRef.current.style.transform = 'scale(1)'
     setZoomUI(1)
     const timer = setTimeout(() => {
       document.getElementById('center-person')?.scrollIntoView({ behavior: 'instant', block: 'center', inline: 'center' })
@@ -157,20 +157,19 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
     if (!sp) return
     const scrollParent: HTMLElement = sp
 
-    // CSS zoom: layout-level scaling — no compositing layer issues, no blink.
-    // Scroll coordinates are in zoomed space, browser handles boundaries natively.
+    // transform: scale() with will-change to keep compositing layer stable.
+    // Always use scale(x) — never empty string — to avoid layer churn blink.
     function applyZoom(newZoom: number, fx: number, fy: number, syncUI = false) {
       const content = contentRef.current
       if (!content) return
       const oldZoom = zoomRef.current
       const clamped = clamp(newZoom, MIN_ZOOM, MAX_ZOOM)
       if (clamped === oldZoom) return
-      // Focal-point scroll compensation (same math, works with CSS zoom)
       const ratio = clamped / oldZoom
       const newSL = (scrollParent.scrollLeft + fx) * ratio - fx
       const newST = (scrollParent.scrollTop + fy) * ratio - fy
       zoomRef.current = clamped
-      content.style.zoom = String(clamped)
+      content.style.transform = `scale(${clamped})`
       scrollParent.scrollLeft = Math.max(0, newSL)
       scrollParent.scrollTop = Math.max(0, newST)
       if (syncUI) setZoomUI(clamped)
@@ -396,7 +395,7 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
       <div
         ref={contentRef}
         className="flex flex-col items-center gap-1 min-w-fit"
-        style={{ padding: `${CARD_PADDING_V}px ${CARD_PADDING_H}px` }}
+        style={{ padding: `${CARD_PADDING_V}px ${CARD_PADDING_H}px`, transform: 'scale(1)', transformOrigin: '0 0', willChange: 'transform' }}
       >
 
         {/* === ANCESTORS (slim: just couples, no siblings) === */}

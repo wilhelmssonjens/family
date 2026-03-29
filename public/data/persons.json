@@ -1492,5 +1492,21 @@
     "stories": [],
     "contactInfo": null,
     "familySide": "center"
+  },
+  {
+    "id": "nils-persson",
+    "firstName": "Nils",
+    "lastName": "Persson",
+    "birthName": null,
+    "birthDate": null,
+    "birthPlace": null,
+    "deathDate": "1965",
+    "deathPlace": "Olastorp",
+    "gender": "male",
+    "occupation": "Lantbrukare",
+    "photos": [],
+    "stories": [],
+    "contactInfo": null,
+    "familySide": "center"
   }
 ]

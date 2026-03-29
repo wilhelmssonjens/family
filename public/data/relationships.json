@@ -630,5 +630,10 @@
     "type": "parent",
     "from": "selma-persson",
     "to": "lennart-oleskog"
+  },
+  {
+    "type": "parent",
+    "from": "nils-persson",
+    "to": "lennart-oleskog"
   }
 ]

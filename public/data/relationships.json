@@ -613,5 +613,11 @@
     "from": "margareta-persson",
     "to": "rune-persson",
     "status": "current"
+  },
+  {
+    "type": "partner",
+    "from": "margareta-persson",
+    "to": "rune-persson-2",
+    "status": "current"
   }
 ]

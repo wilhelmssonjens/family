@@ -137,15 +137,11 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
   // Focal-point zoom: adjusts scroll so the point stays stationary on screen
   const applyZoomAtPointRef = useRef<(newZoom: number, fx: number, fy: number, syncUI?: boolean) => void>(() => {})
 
-  // [C1] Use instant scroll (not smooth) — avoids fighting with CSS animation
-  // [I2] Stop lingering momentum on navigation
+  // Reset zoom + center on navigation. Instant scroll to avoid fighting with CSS animation.
   useEffect(() => {
     if (momentumIdRef.current !== null) { cancelAnimationFrame(momentumIdRef.current); momentumIdRef.current = null }
     zoomRef.current = 1
-    if (contentRef.current) {
-      contentRef.current.style.transform = ''
-      contentRef.current.style.transformOrigin = '0 0'
-    }
+    if (contentRef.current) contentRef.current.style.zoom = '1'
     setZoomUI(1)
     const timer = setTimeout(() => {
       document.getElementById('center-person')?.scrollIntoView({ behavior: 'instant', block: 'center', inline: 'center' })
@@ -161,23 +157,22 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
     if (!sp) return
     const scrollParent: HTMLElement = sp
 
-    // [C2] Zoom via ref — always current, no stale closure
+    // CSS zoom: layout-level scaling — no compositing layer issues, no blink.
+    // Scroll coordinates are in zoomed space, browser handles boundaries natively.
     function applyZoom(newZoom: number, fx: number, fy: number, syncUI = false) {
       const content = contentRef.current
       if (!content) return
       const oldZoom = zoomRef.current
       const clamped = clamp(newZoom, MIN_ZOOM, MAX_ZOOM)
       if (clamped === oldZoom) return
+      // Focal-point scroll compensation (same math, works with CSS zoom)
       const ratio = clamped / oldZoom
       const newSL = (scrollParent.scrollLeft + fx) * ratio - fx
       const newST = (scrollParent.scrollTop + fy) * ratio - fy
-      // All DOM ops synchronous — no React re-render during gesture
       zoomRef.current = clamped
-      content.style.transformOrigin = '0 0'
-      content.style.transform = clamped !== 1 ? `scale(${clamped})` : ''
+      content.style.zoom = String(clamped)
       scrollParent.scrollLeft = Math.max(0, newSL)
       scrollParent.scrollTop = Math.max(0, newST)
-      // Only sync React state when explicitly requested (gesture end / button click)
       if (syncUI) setZoomUI(clamped)
     }
     applyZoomAtPointRef.current = applyZoom
@@ -401,7 +396,7 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
       <div
         ref={contentRef}
         className="flex flex-col items-center gap-1 min-w-fit"
-        style={{ transformOrigin: '0 0', padding: `${CARD_PADDING_V}px ${CARD_PADDING_H}px` }}
+        style={{ padding: `${CARD_PADDING_V}px ${CARD_PADDING_H}px` }}
       >
 
         {/* === ANCESTORS (slim: just couples, no siblings) === */}

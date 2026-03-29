@@ -512,5 +512,40 @@
     "type": "parent",
     "from": "karin-wernmark",
     "to": "susanna-wernmark"
+  },
+  {
+    "type": "sibling",
+    "from": "pergunnar-ahlbck",
+    "to": "ingwar-ahlbck"
+  },
+  {
+    "type": "sibling",
+    "from": "pergunnar-ahlbck",
+    "to": "svenne-ahlbck"
+  },
+  {
+    "type": "sibling",
+    "from": "pergunnar-ahlbck",
+    "to": "margareta-bjrndahl"
+  },
+  {
+    "type": "sibling",
+    "from": "christina-ahlbck",
+    "to": "hans-frostensson"
+  },
+  {
+    "type": "sibling",
+    "from": "christina-ahlbck",
+    "to": "margareta-persson"
+  },
+  {
+    "type": "sibling",
+    "from": "christina-ahlbck",
+    "to": "brita-skogsheid"
+  },
+  {
+    "type": "sibling",
+    "from": "christina-ahlbck",
+    "to": "margareta-skogshejd"
   }
 ]

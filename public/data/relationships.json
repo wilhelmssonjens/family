@@ -572,5 +572,25 @@
     "type": "sibling",
     "from": "lennart-oleskog",
     "to": "henrik-oleskog-2"
+  },
+  {
+    "type": "sibling",
+    "from": "birger-oleskog",
+    "to": "elsa-oleskog"
+  },
+  {
+    "type": "sibling",
+    "from": "erik-oleskog",
+    "to": "elsa-oleskog"
+  },
+  {
+    "type": "sibling",
+    "from": "lennart-oleskog",
+    "to": "elsa-oleskog"
+  },
+  {
+    "type": "sibling",
+    "from": "henrik-oleskog-2",
+    "to": "elsa-oleskog"
   }
 ]

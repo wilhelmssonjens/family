@@ -625,5 +625,10 @@
     "from": "pernilla-bjrk",
     "to": "tomas-bjrk",
     "status": "current"
+  },
+  {
+    "type": "parent",
+    "from": "selma-persson",
+    "to": "lennart-oleskog"
   }
 ]

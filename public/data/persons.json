@@ -1476,5 +1476,21 @@
     "stories": [],
     "contactInfo": null,
     "familySide": "center"
+  },
+  {
+    "id": "selma-persson",
+    "firstName": "Selma",
+    "lastName": "Persson",
+    "birthName": null,
+    "birthDate": "1890",
+    "birthPlace": null,
+    "deathDate": "1965",
+    "deathPlace": null,
+    "gender": "female",
+    "occupation": "Lantbrukare",
+    "photos": [],
+    "stories": [],
+    "contactInfo": null,
+    "familySide": "center"
   }
 ]

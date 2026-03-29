@@ -1343,21 +1343,5 @@
     "stories": [],
     "contactInfo": null,
     "familySide": "center"
-  },
-  {
-    "id": "birger-oleskog-2",
-    "firstName": "Birger",
-    "lastName": "Oleskog",
-    "birthName": "Persson",
-    "birthDate": null,
-    "birthPlace": "Olastorp utanför Osby",
-    "deathDate": null,
-    "deathPlace": "Piteå",
-    "gender": "male",
-    "occupation": "Jägmästare",
-    "photos": [],
-    "stories": [],
-    "contactInfo": null,
-    "familySide": "center"
   }
 ]

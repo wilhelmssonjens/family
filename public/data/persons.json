@@ -1412,5 +1412,21 @@
     ],
     "contactInfo": null,
     "familySide": "center"
+  },
+  {
+    "id": "berta-svensson",
+    "firstName": "Berta",
+    "lastName": "Svensson",
+    "birthName": null,
+    "birthDate": "1898",
+    "birthPlace": null,
+    "deathDate": "1961",
+    "deathPlace": null,
+    "gender": "female",
+    "occupation": "Lanthandlare",
+    "photos": [],
+    "stories": [],
+    "contactInfo": null,
+    "familySide": "center"
   }
 ]

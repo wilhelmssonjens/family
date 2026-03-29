@@ -602,5 +602,10 @@
     "type": "parent",
     "from": "augustwilhelm-svensson",
     "to": "birgit-oleskog"
+  },
+  {
+    "type": "parent",
+    "from": "berta-svensson",
+    "to": "birgit-oleskog"
   }
 ]

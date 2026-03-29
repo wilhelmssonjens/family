@@ -32,8 +32,15 @@ function getFingerDistance(t1: Touch, t2: Touch) {
  * Collect the ancestor chain upward from a person.
  * Returns an array of couples (person + partner + siblings), oldest first.
  */
-function collectAncestorChain(personId: string, graph: FamilyGraph): { person: Person; partner: Person | null; siblings: Person[] }[] {
-  const chain: { person: Person; partner: Person | null; siblings: Person[] }[] = []
+interface AncestorEntry {
+  person: Person
+  partner: Person | null
+  personSiblings: Person[]
+  partnerSiblings: Person[]
+}
+
+function collectAncestorChain(personId: string, graph: FamilyGraph): AncestorEntry[] {
+  const chain: AncestorEntry[] = []
   let currentId = personId
 
   while (true) {
@@ -42,14 +49,11 @@ function collectAncestorChain(personId: string, graph: FamilyGraph): { person: P
 
     const parent = parents[0]
     const otherParent = parents[1] ?? null
-    const partnerId = otherParent?.id
-    // Get siblings of BOTH the blood-line ancestor AND their partner
-    const sibs = getSiblings(graph, parent.id).filter(s => s.id !== partnerId)
-    if (otherParent) {
-      const partnerSibs = getSiblings(graph, otherParent.id).filter(s => s.id !== parent.id)
-      sibs.push(...partnerSibs)
-    }
-    chain.push({ person: parent, partner: otherParent, siblings: sibs })
+    const personSiblings = getSiblings(graph, parent.id).filter(s => s.id !== otherParent?.id)
+    const partnerSiblings = otherParent
+      ? getSiblings(graph, otherParent.id).filter(s => s.id !== parent.id)
+      : []
+    chain.push({ person: parent, partner: otherParent, personSiblings, partnerSiblings })
     currentId = parent.id
   }
 
@@ -294,20 +298,25 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
 
   // Collect ancestors for each parent separately (both sides)
   const parents = getParents(graph, centerId)
-  const parentPairs: { person: Person; partner: Person | null; siblings: Person[] }[] = []
+  const parentPairs: AncestorEntry[] = []
   if (parents.length >= 2) {
     const p0partner = getPartners(graph, parents[0].id).find(p => p.id === parents[1].id) ? parents[1] : null
     if (p0partner) {
-      // Parents are partners — show siblings of BOTH parents
-      const sibs0 = getSiblings(graph, parents[0].id).filter(s => s.id !== p0partner.id)
-      const sibs1 = getSiblings(graph, parents[1].id).filter(s => s.id !== parents[0].id)
-      parentPairs.push({ person: parents[0], partner: p0partner, siblings: [...sibs0, ...sibs1] })
+      parentPairs.push({
+        person: parents[0],
+        partner: p0partner,
+        personSiblings: getSiblings(graph, parents[0].id).filter(s => s.id !== p0partner.id),
+        partnerSiblings: getSiblings(graph, parents[1].id).filter(s => s.id !== parents[0].id),
+      })
     } else {
-      parentPairs.push({ person: parents[0], partner: getPartners(graph, parents[0].id)[0] ?? null, siblings: getSiblings(graph, parents[0].id) })
-      parentPairs.push({ person: parents[1], partner: getPartners(graph, parents[1].id)[0] ?? null, siblings: getSiblings(graph, parents[1].id) })
+      const p0 = getPartners(graph, parents[0].id)[0] ?? null
+      const p1 = getPartners(graph, parents[1].id)[0] ?? null
+      parentPairs.push({ person: parents[0], partner: p0, personSiblings: getSiblings(graph, parents[0].id).filter(s => s.id !== p0?.id), partnerSiblings: p0 ? getSiblings(graph, p0.id).filter(s => s.id !== parents[0].id) : [] })
+      parentPairs.push({ person: parents[1], partner: p1, personSiblings: getSiblings(graph, parents[1].id).filter(s => s.id !== p1?.id), partnerSiblings: p1 ? getSiblings(graph, p1.id).filter(s => s.id !== parents[1].id) : [] })
     }
   } else if (parents.length === 1) {
-    parentPairs.push({ person: parents[0], partner: getPartners(graph, parents[0].id)[0] ?? null, siblings: getSiblings(graph, parents[0].id) })
+    const p0 = getPartners(graph, parents[0].id)[0] ?? null
+    parentPairs.push({ person: parents[0], partner: p0, personSiblings: getSiblings(graph, parents[0].id).filter(s => s.id !== p0?.id), partnerSiblings: p0 ? getSiblings(graph, p0.id).filter(s => s.id !== parents[0].id) : [] })
   }
 
   // Build two ancestor lines (paternal + maternal)
@@ -496,18 +505,21 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
   )
 }
 
-/** Render an ancestor couple with their siblings on either side */
+/** Render an ancestor couple with person's siblings on the left and partner's on the right */
 function AncestorRowWithSiblings({ couple, onNav, onInfo }: {
-  couple: { person: Person; partner: Person | null; siblings: Person[] }
+  couple: AncestorEntry
   onNav: (id: string) => void
   onInfo: (id: string) => void
 }) {
   return (
     <div className="flex items-center gap-1.5 sm:gap-3">
-      {couple.siblings.map(sib => (
+      {couple.personSiblings.map(sib => (
         <PersonCard key={sib.id} person={sib} onNavigate={() => onNav(sib.id)} onShowInfo={() => onInfo(sib.id)} />
       ))}
       <CoupleRow person={couple.person} partner={couple.partner} onNav={onNav} onInfo={onInfo} />
+      {couple.partnerSiblings.map(sib => (
+        <PersonCard key={sib.id} person={sib} onNavigate={() => onNav(sib.id)} onShowInfo={() => onInfo(sib.id)} />
+      ))}
     </div>
   )
 }

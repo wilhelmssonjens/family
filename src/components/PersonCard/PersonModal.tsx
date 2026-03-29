@@ -165,12 +165,17 @@ export function PersonModal({ person, relationLabel, onClose, onSave, onDelete, 
           {/* Name — tappable to edit inline */}
           <div className="min-w-0 flex-1">
             {editingName ? (
-              <div className="space-y-1.5">
+              <div
+                className="space-y-1.5"
+                onBlur={(e) => {
+                  // Only close if focus leaves BOTH inputs (not when switching between them)
+                  if (!e.currentTarget.contains(e.relatedTarget as Node)) setEditingName(false)
+                }}
+              >
                 <input
-                  className={`${inputClass} font-serif font-bold text-base`}
+                  className={`${inputClass} font-serif font-bold`}
                   value={form.firstName}
                   onChange={(e) => updateField('firstName', e.target.value)}
-                  onBlur={() => setEditingName(false)}
                   onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') setEditingName(false) }}
                   placeholder="Förnamn"
                   autoFocus

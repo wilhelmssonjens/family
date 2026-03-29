@@ -104,6 +104,7 @@ export function Modal({ children, onClose }: Props) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4"
+      style={{ touchAction: 'none' }}
       onClick={onClose}
     >
       <div className="absolute inset-0 bg-black/30" />
@@ -116,6 +117,7 @@ export function Modal({ children, onClose }: Props) {
                    rounded-t-2xl sm:rounded-xl sm:max-w-md
                    animate-slide-up sm:animate-in shadow-lg
                    pb-[env(safe-area-inset-bottom)] outline-none"
+        style={{ touchAction: 'pan-y' }}
         onClick={(e) => e.stopPropagation()}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}

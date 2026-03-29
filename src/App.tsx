@@ -24,7 +24,7 @@ const REQUIRE_APPROVAL = false
 function FamilyPage({ view }: { view: 'focused' | 'tree' }) {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { persons, relationships, loading, error, updatePerson, removePerson, addPerson, addRelationships } = useFamilyData()
+  const { persons, relationships, loading, error, updatePerson, removePerson, addPerson, addRelationships, replacePersonId, reloadFromServer } = useFamilyData()
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null)
   const [showAddRelative, setShowAddRelative] = useState(false)
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle')
@@ -43,14 +43,18 @@ function FamilyPage({ view }: { view: 'focused' | 'tree' }) {
   const centerId = id ?? 'jens'
   const selectedPerson = persons.find(p => p.id === selectedPersonId)
 
+  // Issue 3: on API error, reload data from server to restore truth
   const showError = () => {
     setSubmitStatus('error')
     setTimeout(() => setSubmitStatus('idle'), 3000)
+    reloadFromServer()
   }
 
+  const endpoint = REQUIRE_APPROVAL ? '/api/submit-contribution' : '/api/submit-direct'
+
+  // Issue 6: handleEditSave does NOT close modal — PersonModal.handleClose does that
   function handleEditSave(data: EditPersonData) {
     const editId = selectedPersonId
-    // Optimistic: update locally + close modal immediately
     if (editId) {
       updatePerson(editId, {
         firstName: data.firstName,
@@ -66,10 +70,8 @@ function FamilyPage({ view }: { view: 'focused' | 'tree' }) {
         photos: data.photos,
       })
     }
-    setSelectedPersonId(null)
+    // Don't close modal here — PersonModal.handleClose calls onClose() after onSave()
 
-    // Enqueue API call — runs after any pending calls finish
-    const endpoint = REQUIRE_APPROVAL ? '/api/submit-contribution' : '/api/submit-direct'
     enqueueApiCall(async () => {
       const res = await fetch(endpoint, {
         method: 'POST',
@@ -85,7 +87,6 @@ function FamilyPage({ view }: { view: 'focused' | 'tree' }) {
     if (deleteId) removePerson(deleteId)
     setSelectedPersonId(null)
 
-    const endpoint = REQUIRE_APPROVAL ? '/api/submit-contribution' : '/api/submit-direct'
     enqueueApiCall(async () => {
       const res = await fetch(endpoint, {
         method: 'POST',
@@ -103,8 +104,6 @@ function FamilyPage({ view }: { view: 'focused' | 'tree' }) {
     setSelectedPersonId(null)
 
     if (!anchorId) return
-
-    const endpoint = REQUIRE_APPROVAL ? '/api/submit-contribution' : '/api/submit-direct'
 
     if (data.existingPersonId) {
       // Link existing person — optimistic local update
@@ -168,16 +167,15 @@ function FamilyPage({ view }: { view: 'focused' | 'tree' }) {
       } else if (data.relationType === 'sibling') {
         const parentRels = relationships.filter(r => r.type === 'parent' && r.to === anchorId)
         if (parentRels.length > 0) {
-          // Anchor has parents — share them with the new sibling
           for (const pr of parentRels) {
             newRels.push({ type: 'parent', from: pr.from, to: tempId })
           }
         }
-        // Always add direct sibling relation (works even without parents)
         newRels.push({ type: 'sibling', from: anchorId, to: tempId })
       }
       addPerson(newPerson, newRels)
 
+      // Issue 13: replace temp ID with server-assigned permanent ID
       enqueueApiCall(async () => {
         const res = await fetch(endpoint, {
           method: 'POST',
@@ -185,6 +183,10 @@ function FamilyPage({ view }: { view: 'focused' | 'tree' }) {
           body: JSON.stringify({ ...data, relatedToId: anchorId }),
         })
         if (!res.ok) throw new Error()
+        const result = await res.json()
+        if (result.personId && result.personId !== tempId) {
+          replacePersonId(tempId, result.personId)
+        }
       }, showError)
     }
   }
@@ -244,7 +246,7 @@ function FamilyPage({ view }: { view: 'focused' | 'tree' }) {
       )}
       {submitStatus === 'error' && (
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-red-600 text-white font-sans text-sm px-4 py-2 rounded-lg shadow-md z-60">
-          Något gick fel. Försök igen.
+          Något gick fel. Datan har laddats om.
         </div>
       )}
     </div>

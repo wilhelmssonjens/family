@@ -58,6 +58,103 @@ async function updateFile(path: string, content: string, sha: string, message: s
   return res.ok
 }
 
+async function commitFiles(
+  files: { path: string; content: string }[],
+  message: string
+): Promise<boolean> {
+  const headers = {
+    Authorization: `Bearer ${GITHUB_TOKEN}`,
+    Accept: 'application/vnd.github+json',
+    'Content-Type': 'application/json',
+  }
+
+  // 1. Get current commit SHA from the branch ref
+  const refRes = await fetch(
+    `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/git/ref/heads/main`,
+    { headers }
+  )
+  if (!refRes.ok) return false
+  const refData = await refRes.json()
+  const currentCommitSha = refData.object.sha
+
+  // 2. Get the tree SHA from that commit
+  const commitRes = await fetch(
+    `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/git/commits/${currentCommitSha}`,
+    { headers }
+  )
+  if (!commitRes.ok) return false
+  const commitData = await commitRes.json()
+  const baseTreeSha = commitData.tree.sha
+
+  // 3. Create blobs for each file
+  const treeItems = []
+  for (const file of files) {
+    const blobRes = await fetch(
+      `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/git/blobs`,
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          content: file.content,
+          encoding: 'utf-8',
+        }),
+      }
+    )
+    if (!blobRes.ok) return false
+    const blobData = await blobRes.json()
+    treeItems.push({
+      path: file.path,
+      mode: '100644' as const,
+      type: 'blob' as const,
+      sha: blobData.sha,
+    })
+  }
+
+  // 4. Create a new tree containing both blobs
+  const treeRes = await fetch(
+    `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/git/trees`,
+    {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        base_tree: baseTreeSha,
+        tree: treeItems,
+      }),
+    }
+  )
+  if (!treeRes.ok) return false
+  const treeData = await treeRes.json()
+
+  // 5. Create a commit pointing to the new tree
+  const newCommitRes = await fetch(
+    `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/git/commits`,
+    {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        message,
+        tree: treeData.sha,
+        parents: [currentCommitSha],
+      }),
+    }
+  )
+  if (!newCommitRes.ok) return false
+  const newCommitData = await newCommitRes.json()
+
+  // 6. Update the branch ref to the new commit
+  const updateRefRes = await fetch(
+    `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/git/refs/heads/main`,
+    {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({
+        sha: newCommitData.sha,
+      }),
+    }
+  )
+  return updateRefRes.ok
+}
+
 function relationExists(relationships: any[], type: string, from: string, to: string): boolean {
   return relationships.some((r: any) =>
     r.type === type && r.from === from && r.to === to
@@ -70,8 +167,16 @@ function addRelationIfNew(relationships: any[], rel: { type: string; from: strin
   }
 }
 
-function generateId(firstName: string, lastName: string): string {
-  return `${firstName}-${lastName}`.toLowerCase().replace(/[^a-z0-9-]/g, '').replace(/-+/g, '-')
+function generateId(firstName: string, lastName: string, existingPersons: any[]): string {
+  const base = `${firstName}-${lastName}`.toLowerCase().replace(/[^a-z0-9-]/g, '').replace(/-+/g, '-')
+  let id = base
+  let counter = 2
+  const existingIds = new Set(existingPersons.map((p: any) => p.id))
+  while (existingIds.has(id)) {
+    id = `${base}-${counter}`
+    counter++
+  }
+  return id
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -121,28 +226,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         (r: any) => r.from !== relatedToId && r.to !== relatedToId
       )
 
-      const personsOk = await updateFile(
-        'public/data/persons.json',
-        JSON.stringify(persons, null, 2) + '\n',
-        personsFile.sha,
+      const ok = await commitFiles(
+        [
+          { path: 'public/data/persons.json', content: JSON.stringify(persons, null, 2) + '\n' },
+          { path: 'public/data/relationships.json', content: JSON.stringify(relationships, null, 2) + '\n' },
+        ],
         `Ta bort ${personToDelete.firstName} ${personToDelete.lastName}`,
       )
-      if (!personsOk) {
+      if (!ok) {
         return res.status(500).json({ error: 'Kunde inte spara.' })
-      }
-
-      const relsFileUpdated = await getFile('public/data/relationships.json')
-      if (!relsFileUpdated) {
-        return res.status(500).json({ error: 'Kunde inte läsa relationer.' })
-      }
-      const relsOk = await updateFile(
-        'public/data/relationships.json',
-        JSON.stringify(relationships, null, 2) + '\n',
-        relsFileUpdated.sha,
-        `Ta bort relationer för ${personToDelete.firstName} ${personToDelete.lastName}`,
-      )
-      if (!relsOk) {
-        return res.status(500).json({ error: 'Kunde inte spara relationer.' })
       }
 
       return res.status(200).json({ success: true })
@@ -211,6 +303,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         for (const pr of parentRels) {
           addRelationIfNew(relationships, { type: 'parent', from: pr.from, to: existingPersonId })
         }
+        addRelationIfNew(relationships, { type: 'sibling', from: relatedToId, to: existingPersonId })
       } else if (linkType === 'partner') {
         addRelationIfNew(relationships, { type: 'partner', from: relatedToId, to: existingPersonId, status: 'current' })
       }
@@ -233,7 +326,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: 'Förnamn och efternamn krävs.' })
     }
 
-    const newId = generateId(firstName, lastName)
+    const newId = generateId(firstName, lastName, persons)
     const newPerson = {
       id: newId,
       firstName,
@@ -274,38 +367,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         for (const pr of parentRels) {
           addRelationIfNew(relationships, { type: 'parent', from: pr.from, to: newId })
         }
+        addRelationIfNew(relationships, { type: 'sibling', from: relatedToId, to: newId })
       } else if (relationType === 'partner') {
         addRelationIfNew(relationships, { type: 'partner', from: relatedToId, to: newId, status: 'current' })
       }
     }
 
-    // Commit persons.json
-    const personsOk = await updateFile(
-      'public/data/persons.json',
-      JSON.stringify(persons, null, 2) + '\n',
-      personsFile.sha,
+    // Commit both files atomically
+    const ok = await commitFiles(
+      [
+        { path: 'public/data/persons.json', content: JSON.stringify(persons, null, 2) + '\n' },
+        { path: 'public/data/relationships.json', content: JSON.stringify(relationships, null, 2) + '\n' },
+      ],
       `Lägg till ${firstName} ${lastName}`,
     )
 
-    if (!personsOk) {
-      return res.status(500).json({ error: 'Kunde inte spara personen.' })
-    }
-
-    // Re-fetch relationships sha (persons commit may have changed it on same branch)
-    const relsFileUpdated = await getFile('public/data/relationships.json')
-    if (!relsFileUpdated) {
-      return res.status(500).json({ error: 'Kunde inte läsa relationer.' })
-    }
-
-    const relsOk = await updateFile(
-      'public/data/relationships.json',
-      JSON.stringify(relationships, null, 2) + '\n',
-      relsFileUpdated.sha,
-      `Lägg till relation för ${firstName} ${lastName}`,
-    )
-
-    if (!relsOk) {
-      return res.status(500).json({ error: 'Kunde inte spara relationen.' })
+    if (!ok) {
+      return res.status(500).json({ error: 'Kunde inte spara.' })
     }
 
     return res.status(200).json({ success: true, personId: newId })

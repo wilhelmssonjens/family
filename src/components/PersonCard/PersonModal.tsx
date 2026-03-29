@@ -2,6 +2,7 @@ import { useState, useRef, useCallback } from 'react'
 import { Modal } from '../Modal/Modal'
 import { formatLifespan, getInitials } from '../../utils/formatPerson'
 import { compressImage } from '../../utils/compressImage'
+import { isValidDate } from '../../utils/validateDate'
 import type { Person, Story } from '../../types'
 
 export interface EditPersonData {
@@ -212,10 +213,10 @@ export function PersonModal({ person, relationLabel, onClose, onSave, onDelete, 
 
         {/* Inline-editable detail fields */}
         <div className="space-y-2 mb-5">
-          <EditableDetailRow label="Födelsedatum" value={form.birthDate} onChange={(v) => updateField('birthDate', v)} placeholder="ÅÅÅÅ-MM-DD" />
+          <EditableDetailRow label="Födelsedatum" value={form.birthDate} onChange={(v) => updateField('birthDate', v)} placeholder="ÅÅÅÅ-MM-DD" validate={isValidDate} />
           <EditableDetailRow label="Födelseort" value={form.birthPlace} onChange={(v) => updateField('birthPlace', v)} />
           <EditableDetailRow label="Födnamn" value={form.birthName} onChange={(v) => updateField('birthName', v)} placeholder="Om annat" />
-          <EditableDetailRow label="Dödsdatum" value={form.deathDate} onChange={(v) => updateField('deathDate', v)} placeholder="ÅÅÅÅ-MM-DD" />
+          <EditableDetailRow label="Dödsdatum" value={form.deathDate} onChange={(v) => updateField('deathDate', v)} placeholder="ÅÅÅÅ-MM-DD" validate={isValidDate} />
           <EditableDetailRow label="Dödsort" value={form.deathPlace} onChange={(v) => updateField('deathPlace', v)} />
           <EditableDetailRow label="Yrke" value={form.occupation} onChange={(v) => updateField('occupation', v)} />
           <EditableDetailRow label="Kontakt" value={form.contactInfo} onChange={(v) => updateField('contactInfo', v)} />
@@ -333,16 +334,19 @@ function photoSrc(path: string): string {
 }
 
 /** Inline-editable field: tap to edit, blur/Enter to save locally */
-function EditableDetailRow({ label, value, onChange, placeholder }: {
+function EditableDetailRow({ label, value, onChange, placeholder, validate }: {
   label: string
   value: string
   onChange: (value: string) => void
   placeholder?: string
+  validate?: (v: string) => boolean
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value)
+  const isInvalid = validate ? !validate(draft) : false
 
   function commit() {
+    if (isInvalid) return
     onChange(draft)
     setEditing(false)
   }
@@ -352,7 +356,7 @@ function EditableDetailRow({ label, value, onChange, placeholder }: {
       <div className="flex gap-3 items-center text-sm font-sans">
         <span className="text-text-secondary w-24 sm:w-28 flex-shrink-0">{label}</span>
         <input
-          className="w-full px-2 py-1.5 text-base font-sans border border-accent/60 rounded bg-white text-text-primary placeholder:text-text-secondary/50 focus:outline-none focus:border-accent"
+          className={`w-full px-2 py-1.5 text-base font-sans border rounded bg-white text-text-primary placeholder:text-text-secondary/50 focus:outline-none ${isInvalid ? 'border-red-400 focus:border-red-500' : 'border-accent/60 focus:border-accent'}`}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onBlur={commit}

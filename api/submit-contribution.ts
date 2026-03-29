@@ -31,43 +31,100 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(429).json({ error: 'För många förfrågningar. Försök igen senare.' })
   }
 
-  const { firstName, lastName, relationType, honeypot, ...rest } = req.body
+  const { firstName, lastName, relationType, honeypot, relatedToId, existingPersonId, ...rest } = req.body
 
   if (honeypot) {
     return res.status(200).json({ success: true })
-  }
-
-  if (!firstName || !lastName) {
-    return res.status(400).json({ error: 'Förnamn och efternamn krävs.' })
   }
 
   if (!GITHUB_TOKEN || !REPO_OWNER || !REPO_NAME) {
     return res.status(500).json({ error: 'Server configuration error' })
   }
 
-  const isEdit = !!rest.personId
-  const title = isEdit
-    ? `Uppdatera: ${firstName} ${lastName}`
-    : `Ny person: ${firstName} ${lastName}`
+  // Determine title and body based on operation type
+  let title: string
+  let body: string
 
-  const body = [
-    `## ${isEdit ? 'Uppdatering' : 'Ny person'}`,
-    '',
-    `**Namn:** ${firstName} ${lastName}`,
-    `**Relationstyp:** ${relationType}`,
-    rest.birthName ? `**Födnamn:** ${rest.birthName}` : null,
-    rest.birthDate ? `**Födelsedatum:** ${rest.birthDate}` : null,
-    rest.birthPlace ? `**Födelseort:** ${rest.birthPlace}` : null,
-    rest.deathDate ? `**Dödsdatum:** ${rest.deathDate}` : null,
-    rest.deathPlace ? `**Dödsort:** ${rest.deathPlace}` : null,
-    rest.occupation ? `**Yrke:** ${rest.occupation}` : null,
-    rest.story ? `\n### Berättelse\n${rest.story}` : null,
-    '',
-    '---',
-    '```json',
-    JSON.stringify(req.body, null, 2),
-    '```',
-  ].filter(Boolean).join('\n')
+  if (relationType === 'delete') {
+    if (!relatedToId) {
+      return res.status(400).json({ error: 'Person-ID krävs för borttagning.' })
+    }
+    title = `Ta bort: ${relatedToId}`
+    body = [
+      '## Ta bort person',
+      '',
+      `**Person-ID:** ${relatedToId}`,
+      '',
+      '---',
+      '```json',
+      JSON.stringify(req.body, null, 2),
+      '```',
+    ].join('\n')
+  } else if (relationType === 'link') {
+    if (!relatedToId || !existingPersonId) {
+      return res.status(400).json({ error: 'Båda person-ID krävs för koppling.' })
+    }
+    title = `Koppla: ${relatedToId} + ${existingPersonId}`
+    body = [
+      '## Koppla befintliga personer',
+      '',
+      `**Från:** ${relatedToId}`,
+      `**Till:** ${existingPersonId}`,
+      rest.linkRelationType ? `**Relationstyp:** ${rest.linkRelationType}` : null,
+      '',
+      '---',
+      '```json',
+      JSON.stringify(req.body, null, 2),
+      '```',
+    ].filter(Boolean).join('\n')
+  } else if (relationType === 'edit') {
+    if (!firstName || !lastName) {
+      return res.status(400).json({ error: 'Förnamn och efternamn krävs.' })
+    }
+    title = `Redigera: ${firstName} ${lastName}`
+    body = [
+      '## Redigera person',
+      '',
+      `**Namn:** ${firstName} ${lastName}`,
+      relatedToId ? `**Person-ID:** ${relatedToId}` : null,
+      rest.birthName ? `**Födnamn:** ${rest.birthName}` : null,
+      rest.birthDate ? `**Födelsedatum:** ${rest.birthDate}` : null,
+      rest.birthPlace ? `**Födelseort:** ${rest.birthPlace}` : null,
+      rest.deathDate ? `**Dödsdatum:** ${rest.deathDate}` : null,
+      rest.deathPlace ? `**Dödsort:** ${rest.deathPlace}` : null,
+      rest.occupation ? `**Yrke:** ${rest.occupation}` : null,
+      rest.story ? `\n### Berättelse\n${rest.story}` : null,
+      '',
+      '---',
+      '```json',
+      JSON.stringify(req.body, null, 2),
+      '```',
+    ].filter(Boolean).join('\n')
+  } else {
+    // Default: add new person
+    if (!firstName || !lastName) {
+      return res.status(400).json({ error: 'Förnamn och efternamn krävs.' })
+    }
+    title = `Ny person: ${firstName} ${lastName}`
+    body = [
+      '## Ny person',
+      '',
+      `**Namn:** ${firstName} ${lastName}`,
+      `**Relationstyp:** ${relationType}`,
+      rest.birthName ? `**Födnamn:** ${rest.birthName}` : null,
+      rest.birthDate ? `**Födelsedatum:** ${rest.birthDate}` : null,
+      rest.birthPlace ? `**Födelseort:** ${rest.birthPlace}` : null,
+      rest.deathDate ? `**Dödsdatum:** ${rest.deathDate}` : null,
+      rest.deathPlace ? `**Dödsort:** ${rest.deathPlace}` : null,
+      rest.occupation ? `**Yrke:** ${rest.occupation}` : null,
+      rest.story ? `\n### Berättelse\n${rest.story}` : null,
+      '',
+      '---',
+      '```json',
+      JSON.stringify(req.body, null, 2),
+      '```',
+    ].filter(Boolean).join('\n')
+  }
 
   try {
     const response = await fetch(

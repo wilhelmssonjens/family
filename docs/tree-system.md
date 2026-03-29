@@ -116,9 +116,12 @@ FocusedTreeView visar **blodlinjen + syskon** i varje generation:
 
 ### Interaktionsmodell (FocusedTreeView)
 
-**Alla kort:** Tap öppnar PersonModal (info-vy). Enhetligt beteende oavsett center/non-center.
+**Flip-kort:** Tap på ett kort flippar det (CSS 3D rotateY 180°, 0.5s) och visar tre actionknappar:
+1. **Visa släktträd** — navigerar/centrerar på personen (dold på center-kort)
+2. **Visa information** — öppnar PersonModal
+3. **Lägg till släkting** — öppnar AddRelativeModal direkt (genväg)
 
-**Navigering/centrering:** Crosshair-ikon i övre högra hörnet på non-center kort. Synlig med `opacity-60` på mobil, `opacity-0 → group-hover:opacity-100` på desktop.
+Knappar: grön bakgrund (`bg-accent`), vit text, kolumnlayout. Bara ett kort kan vara expanderat åt gången (`expandedPersonId` i FocusedTreeView). Klick utanför stänger. Expanded kort overlayar med absolute positioning (ingen layout-shift, z-30).
 
 **Modal på mobil:** Bottom sheet som glider upp från botten (`animate-slide-up`). Drag handle (grå pille) ovanför innehållet. Swipe ner (>25% av sheetens höjd) stänger. På desktop: centrerad dialog. ARIA `role="dialog"` + `aria-modal="true"` + fokus-trap.
 

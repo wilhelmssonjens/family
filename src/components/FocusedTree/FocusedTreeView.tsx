@@ -10,6 +10,7 @@ interface Props {
   relationships: Relationship[]
   centerId: string
   onPersonClick: (personId: string) => void
+  onAddRelative: (personId: string) => void
 }
 
 // Max generations to show below center (center's children + grandchildren)
@@ -122,9 +123,12 @@ function collectDescendantGens(
   return result
 }
 
-export function FocusedTreeView({ persons, relationships, centerId, onPersonClick }: Props) {
+export function FocusedTreeView({ persons, relationships, centerId, onPersonClick, onAddRelative }: Props) {
   const navigate = useNavigate()
   const graph = useMemo(() => buildFamilyGraph(persons, relationships), [persons, relationships])
+
+  // Flip-card: track which card is expanded (only one at a time)
+  const [expandedPersonId, setExpandedPersonId] = useState<string | null>(null)
 
   // Zoom: ref is source of truth, state only for UI display
   const [zoomUI, setZoomUI] = useState(1)
@@ -143,11 +147,29 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
     zoomRef.current = 1
     if (contentRef.current) contentRef.current.style.transform = 'scale(1)'
     setZoomUI(1)
+    setExpandedPersonId(null)
     const timer = setTimeout(() => {
       document.getElementById('center-person')?.scrollIntoView({ behavior: 'instant', block: 'center', inline: 'center' })
     }, 50)
     return () => clearTimeout(timer)
   }, [centerId])
+
+  // Click-outside handler: collapse expanded card when clicking elsewhere
+  useEffect(() => {
+    if (!expandedPersonId) return
+    function handleClickOutside(e: MouseEvent | TouchEvent) {
+      const target = e.target as HTMLElement
+      if (!target.closest('[data-expanded-card]')) {
+        setExpandedPersonId(null)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('touchstart', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('touchstart', handleClickOutside)
+    }
+  }, [expandedPersonId])
 
   // Free-form pan + focal-point zoom + momentum
   useEffect(() => {
@@ -385,7 +407,29 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
     : []
 
   function handleNav(id: string) {
+    setExpandedPersonId(null)
     navigate(`/person/${id}`)
+  }
+
+  function handleShowInfo(id: string) {
+    setExpandedPersonId(null)
+    onPersonClick(id)
+  }
+
+  function handleAddRelative(id: string) {
+    setExpandedPersonId(null)
+    onAddRelative(id)
+  }
+
+  function cardProps(id: string, isCenter = false) {
+    return {
+      isCenter,
+      isExpanded: expandedPersonId === id,
+      onExpand: () => setExpandedPersonId(expandedPersonId === id ? null : id),
+      onNavigate: isCenter ? undefined : () => handleNav(id),
+      onShowInfo: () => handleShowInfo(id),
+      onAddRelative: () => handleAddRelative(id),
+    }
   }
 
   return (
@@ -412,14 +456,14 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
                 {patCouple && (
                   <AncestorRowWithSiblings
                     couple={patCouple}
-                    onNav={handleNav} onInfo={onPersonClick}
+                    cardProps={cardProps}
                   />
                 )}
                 {matCouple && patCouple && <div className="w-4" />}
                 {matCouple && (
                   <AncestorRowWithSiblings
                     couple={matCouple}
-                    onNav={handleNav} onInfo={onPersonClick}
+                    cardProps={cardProps}
                   />
                 )}
               </div>
@@ -436,7 +480,7 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
                 <AncestorRowWithSiblings
                   key={pp.person.id}
                   couple={pp}
-                  onNav={handleNav} onInfo={onPersonClick}
+                  cardProps={cardProps}
                 />
               ))}
             </div>
@@ -449,21 +493,21 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
         {/* === CENTER ROW (with siblings) === */}
         <div className="flex items-center gap-1.5 sm:gap-3 justify-center">
           {siblings.map(sib => (
-            <PersonCard key={sib.id} person={sib} onNavigate={() => handleNav(sib.id)} onShowInfo={() => onPersonClick(sib.id)} />
+            <PersonCard key={sib.id} person={sib} {...cardProps(sib.id)} />
           ))}
 
           <div id="center-person" className="flex items-center gap-2">
-            <PersonCard person={center} isCenter onShowInfo={() => onPersonClick(centerId)} />
+            <PersonCard person={center} {...cardProps(centerId, true)} />
             {partners.map(p => (
               <div key={p.id} className="flex items-center gap-2">
                 <span className="text-accent font-sans text-lg font-light">+</span>
-                <PersonCard person={p} onNavigate={() => handleNav(p.id)} onShowInfo={() => onPersonClick(p.id)} />
+                <PersonCard person={p} {...cardProps(p.id)} />
               </div>
             ))}
           </div>
 
           {partnerSiblings.map(ps => (
-            <PersonCard key={ps.id} person={ps} onNavigate={() => handleNav(ps.id)} onShowInfo={() => onPersonClick(ps.id)} />
+            <PersonCard key={ps.id} person={ps} {...cardProps(ps.id)} />
           ))}
         </div>
 
@@ -492,7 +536,7 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
             <div className="w-px h-3 sm:h-5 bg-card-border/40" />
             <div className="flex items-center gap-1.5 sm:gap-3 justify-center">
               {gen.map(child => (
-                <PersonCard key={child.id} person={child} onNavigate={() => handleNav(child.id)} onShowInfo={() => onPersonClick(child.id)} />
+                <PersonCard key={child.id} person={child} {...cardProps(child.id)} />
               ))}
             </div>
           </div>
@@ -558,39 +602,46 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
   )
 }
 
+type CardPropsFn = (id: string, isCenter?: boolean) => {
+  isCenter: boolean
+  isExpanded: boolean
+  onExpand: () => void
+  onNavigate: (() => void) | undefined
+  onShowInfo: () => void
+  onAddRelative: () => void
+}
+
 /** Render an ancestor couple with person's siblings on the left and partner's on the right */
-function AncestorRowWithSiblings({ couple, onNav, onInfo }: {
+function AncestorRowWithSiblings({ couple, cardProps }: {
   couple: AncestorEntry
-  onNav: (id: string) => void
-  onInfo: (id: string) => void
+  cardProps: CardPropsFn
 }) {
   return (
     <div className="flex items-center gap-1.5 sm:gap-3">
       {couple.personSiblings.map(sib => (
-        <PersonCard key={sib.id} person={sib} onNavigate={() => onNav(sib.id)} onShowInfo={() => onInfo(sib.id)} />
+        <PersonCard key={sib.id} person={sib} {...cardProps(sib.id)} />
       ))}
-      <CoupleRow person={couple.person} partner={couple.partner} onNav={onNav} onInfo={onInfo} />
+      <CoupleRow person={couple.person} partner={couple.partner} cardProps={cardProps} />
       {couple.partnerSiblings.map(sib => (
-        <PersonCard key={sib.id} person={sib} onNavigate={() => onNav(sib.id)} onShowInfo={() => onInfo(sib.id)} />
+        <PersonCard key={sib.id} person={sib} {...cardProps(sib.id)} />
       ))}
     </div>
   )
 }
 
 /** Render a couple (person + optional partner) as a compact row */
-function CoupleRow({ person, partner, onNav, onInfo }: {
+function CoupleRow({ person, partner, cardProps }: {
   person: Person
   partner: Person | null
-  onNav: (id: string) => void
-  onInfo: (id: string) => void
+  cardProps: CardPropsFn
 }) {
   return (
     <div className="flex items-center gap-2">
-      <PersonCard person={person} onNavigate={() => onNav(person.id)} onShowInfo={() => onInfo(person.id)} />
+      <PersonCard person={person} {...cardProps(person.id)} />
       {partner && (
         <>
           <span className="text-accent/50 font-sans text-lg">+</span>
-          <PersonCard person={partner} onNavigate={() => onNav(partner.id)} onShowInfo={() => onInfo(partner.id)} />
+          <PersonCard person={partner} {...cardProps(partner.id)} />
         </>
       )}
     </div>

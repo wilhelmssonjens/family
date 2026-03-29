@@ -46,6 +46,29 @@
   animation: tree-enter 0.5s ease-out;
 }
 
+/* Card flip animation */
+.card-flip-container {
+  perspective: 800px;
+}
+
+.card-flip-inner {
+  transform-style: preserve-3d;
+  transition: transform 0.5s ease-in-out;
+}
+
+.card-flip-inner.flipped {
+  transform: rotateY(180deg);
+}
+
+.card-face {
+  backface-visibility: hidden;
+}
+
+.card-face-back {
+  backface-visibility: hidden;
+  transform: rotateY(180deg);
+}
+
 /* Prevent text selection on mobile during drag */
 svg {
   -webkit-user-select: none;

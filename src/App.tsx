@@ -211,6 +211,7 @@ function FamilyPage({ view }: { view: 'focused' | 'tree' }) {
           relationships={relationships}
           centerId={centerId}
           onPersonClick={(pid) => setSelectedPersonId(pid)}
+          onAddRelative={(pid) => { setSelectedPersonId(pid); setShowAddRelative(true) }}
         />
       ) : (
         <TreeView

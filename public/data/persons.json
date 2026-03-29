@@ -1375,5 +1375,21 @@
     "stories": [],
     "contactInfo": null,
     "familySide": "center"
+  },
+  {
+    "id": "anna-lisa-trdgrd",
+    "firstName": "Anna-Lisa",
+    "lastName": "Trädgård",
+    "birthName": "Svensson",
+    "birthDate": "1925",
+    "birthPlace": "Korrö",
+    "deathDate": null,
+    "deathPlace": "Stockholm",
+    "gender": "female",
+    "occupation": "Socionom",
+    "photos": [],
+    "stories": [],
+    "contactInfo": null,
+    "familySide": "center"
   }
 ]

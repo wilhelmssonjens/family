@@ -1306,5 +1306,26 @@
     "stories": [],
     "contactInfo": null,
     "familySide": "center"
+  },
+  {
+    "id": "erik-oleskog",
+    "firstName": "Erik",
+    "lastName": "Oleskog",
+    "birthName": "Persson",
+    "birthDate": "1910",
+    "birthPlace": "Olastorp utanför Osby ",
+    "deathDate": null,
+    "deathPlace": null,
+    "gender": "male",
+    "occupation": "Lantbrukare",
+    "photos": [],
+    "stories": [
+      {
+        "title": "Berättelse",
+        "text": "Tog över gården Olastorp"
+      }
+    ],
+    "contactInfo": null,
+    "familySide": "center"
   }
 ]

@@ -1210,5 +1210,21 @@
     "stories": [],
     "contactInfo": null,
     "familySide": "jens"
+  },
+  {
+    "id": "ingwar-ahlbck",
+    "firstName": "Ingwar",
+    "lastName": "Ahlbäck",
+    "birthName": null,
+    "birthDate": "19251221",
+    "birthPlace": "Örebro",
+    "deathDate": null,
+    "deathPlace": null,
+    "gender": "male",
+    "occupation": null,
+    "photos": [],
+    "stories": [],
+    "contactInfo": null,
+    "familySide": "center"
   }
 ]

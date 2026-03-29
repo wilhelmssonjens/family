@@ -1226,5 +1226,21 @@
     "stories": [],
     "contactInfo": null,
     "familySide": "center"
+  },
+  {
+    "id": "margareta-bjrndahl",
+    "firstName": "Margareta",
+    "lastName": "Björndahl",
+    "birthName": "Ahlbäck",
+    "birthDate": null,
+    "birthPlace": "Örebro",
+    "deathDate": null,
+    "deathPlace": null,
+    "gender": "female",
+    "occupation": null,
+    "photos": [],
+    "stories": [],
+    "contactInfo": null,
+    "familySide": "center"
   }
 ]

@@ -106,6 +106,14 @@ Connector-data kommer direkt från `PositionedFamilyConnectorV3` i layoutresulta
 
 ## Personinteraktion (modal-baserad)
 
+### Synlighetsregler (FocusedTreeView)
+
+FocusedTreeView visar **blodlinjen + syskon** i varje generation:
+- **Ancestors:** Varje förfader i den raka linjen + deras syskon (men inte syskonens partners)
+- **Center-rad:** Centerperson + partners + center's syskon + partners syskon
+- **Descendants:** Center's barn + center's syskons barn (syskonbarn) + barnbarn
+- **Visas ej:** Partners föräldrar/syskon, syskonens partners
+
 ### Interaktionsmodell (FocusedTreeView)
 
 **Alla kort:** Tap öppnar PersonModal (info-vy). Enhetligt beteende oavsett center/non-center.

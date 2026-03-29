@@ -78,8 +78,15 @@ export function PersonCard({ person, isCenter, onNavigate, onShowInfo }: Props) 
                      hover:bg-accent hover:text-white hover:border-accent
                      active:scale-90 transition-all duration-150 cursor-pointer"
           title="Centrera"
+          aria-label="Centrera denna person"
         >
-          &rsaquo;
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-3.5 h-3.5 sm:w-3 sm:h-3">
+            <circle cx="8" cy="8" r="3" />
+            <line x1="8" y1="0.5" x2="8" y2="4" />
+            <line x1="8" y1="12" x2="8" y2="15.5" />
+            <line x1="0.5" y1="8" x2="4" y2="8" />
+            <line x1="12" y1="8" x2="15.5" y2="8" />
+          </svg>
         </button>
       )}
     </div>

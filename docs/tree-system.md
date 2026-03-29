@@ -118,20 +118,24 @@ FocusedTreeView visar **blodlinjen + syskon** i varje generation:
 
 **Alla kort:** Tap öppnar PersonModal (info-vy). Enhetligt beteende oavsett center/non-center.
 
-**Navigering/centrering:** Liten chevron-ikon (›) i övre högra hörnet på non-center kort. Synlig med `opacity-40` på mobil, `opacity-0 → group-hover:opacity-100` på desktop.
+**Navigering/centrering:** Crosshair-ikon i övre högra hörnet på non-center kort. Synlig med `opacity-60` på mobil, `opacity-0 → group-hover:opacity-100` på desktop.
 
-**Modal på mobil:** Bottom sheet som glider upp från botten (`animate-slide-up`). Drag handle (grå pille) ovanför innehållet. Swipe ner (>100px) stänger. På desktop: centrerad dialog som tidigare.
+**Modal på mobil:** Bottom sheet som glider upp från botten (`animate-slide-up`). Drag handle (grå pille) ovanför innehållet. Swipe ner (>25% av sheetens höjd) stänger. På desktop: centrerad dialog. ARIA `role="dialog"` + `aria-modal="true"` + fokus-trap.
+
+**Zoom:** `transform: scale()` med `transformOrigin: '0 0'` + scroll-kompensation håller fokuspunkten stationär. Pinch zoomar mot fingrarnas mittpunkt. Ctrl+wheel zoomar mot muspekaren. +/−-knappar zoomar mot viewportens center. All zoom sker direkt på DOM (ingen React-rerender) för vibrationsfri upplevelse.
+
+**Panorering:** Custom touch-handling med `touch-action: none` för fri panorering utan axel-låsning. Momentum med friction 0.94, max hastighet 30px/frame.
 
 ### PersonModal — en vy, allt inline-redigerbart
 
 Ingen separat "redigera-mode" — alla fält redigeras direkt i samma vy:
 
 - **Namn** i header: tap → inline inputs (förnamn + efternamn). Blur/Enter sparar lokalt.
-- **Foto** i header: tap → öppnar filväljare. Foto-sektion under fälten visar thumbnails + upload-knapp + ta bort.
+- **Foto** i header: tap → öppnar filväljare. Foto-sektion under fälten visar thumbnails + upload-knapp + ta bort (SVG-ikoner).
 - **Textfält** (`EditableDetailRow`): tap → fältet blir en input. Tomma fält visar "+ Lägg till".
-- **Stories** (`EditableStory`): tap → inline redigering av rubrik + text. "+ Lägg till" och "Ta bort" per story.
+- **Övrig information:** Enskilt textfält (textarea) för fri text.
 - **Radera person**: röd länk längst ner med confirm-dialog.
-- **Auto-save:** `dirty`-flagga spårar ändringar. Vid stängning anropas `onSave(formState)` automatiskt.
+- **Auto-save:** `dirty`-flagga spårar ändringar. Vid stängning anropas `onSave(formState)` och "Sparat"-indikator visas. `dirty` nollställs efter save.
 - Footer: "Lägg till släkting" + "Visa i trädet" (non-center).
 - **Lägg till släkting**: Öppnar AddRelativeModal med relationstypväljare.
 

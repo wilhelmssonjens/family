@@ -11,8 +11,40 @@ export function Modal({ children, onClose }: Props) {
   const dragging = useRef(false)
 
   useEffect(() => {
+    // Focus the sheet on mount for keyboard accessibility
+    sheetRef.current?.focus()
+
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') {
+        onClose()
+        return
+      }
+
+      // Focus trap: keep Tab cycling within the modal
+      if (e.key === 'Tab') {
+        const el = sheetRef.current
+        if (!el) return
+
+        const focusable = el.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )
+        if (focusable.length === 0) return
+
+        const first = focusable[0]
+        const last = focusable[focusable.length - 1]
+
+        if (e.shiftKey) {
+          if (document.activeElement === first || document.activeElement === el) {
+            e.preventDefault()
+            last.focus()
+          }
+        } else {
+          if (document.activeElement === last) {
+            e.preventDefault()
+            first.focus()
+          }
+        }
+      }
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
@@ -54,7 +86,7 @@ export function Modal({ children, onClose }: Props) {
     const originalY = window.innerHeight - el.offsetHeight
     const delta = currentY - originalY
 
-    if (delta > 100) {
+    if (delta > el.offsetHeight * 0.25) {
       // Dismiss
       el.style.transition = 'transform 0.2s ease-out'
       el.style.transform = `translateY(100%)`
@@ -77,10 +109,13 @@ export function Modal({ children, onClose }: Props) {
       <div className="absolute inset-0 bg-black/30" />
       <div
         ref={sheetRef}
+        role="dialog"
+        aria-modal="true"
+        tabIndex={-1}
         className="relative bg-card-bg w-full max-h-[75dvh] sm:max-h-[90vh] overflow-y-auto
                    rounded-t-2xl sm:rounded-xl sm:max-w-md
                    animate-slide-up sm:animate-in shadow-lg
-                   pb-[env(safe-area-inset-bottom)]"
+                   pb-[env(safe-area-inset-bottom)] outline-none"
         onClick={(e) => e.stopPropagation()}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}

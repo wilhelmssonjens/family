@@ -33,6 +33,7 @@ export function PersonModal({ person, relationLabel, onClose, onSave, onDelete, 
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [editingName, setEditingName] = useState(false)
+  const [savedFlash, setSavedFlash] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const dirty = useRef(false)
   const [form, setForm] = useState<EditPersonData>({
@@ -66,6 +67,9 @@ export function PersonModal({ person, relationLabel, onClose, onSave, onDelete, 
   const handleClose = useCallback(() => {
     if (dirty.current && form.firstName.trim() && form.lastName.trim()) {
       onSave(form)
+      dirty.current = false
+      setSavedFlash(true)
+      setTimeout(() => setSavedFlash(false), 1500)
     }
     onClose()
   }, [form, onSave, onClose])
@@ -114,6 +118,13 @@ export function PersonModal({ person, relationLabel, onClose, onSave, onDelete, 
     <Modal onClose={handleClose}>
       <div className="p-4 sm:p-6 relative">
         {fileInput}
+
+        {/* Saved flash indicator */}
+        {savedFlash && (
+          <span className="absolute top-4 right-14 text-xs font-sans text-accent animate-in z-10">
+            Sparat
+          </span>
+        )}
 
         {/* Close button */}
         <button
@@ -214,9 +225,12 @@ export function PersonModal({ person, relationLabel, onClose, onSave, onDelete, 
                 <button
                   type="button"
                   onClick={() => removePhoto(i)}
-                  className="absolute top-0 right-0 w-5 h-5 bg-red-600 text-white text-xs rounded-bl-lg flex items-center justify-center hover:bg-red-700 cursor-pointer"
+                  className="absolute top-0 right-0 w-5 h-5 bg-red-600 text-white rounded-bl-lg flex items-center justify-center hover:bg-red-700 cursor-pointer"
+                  aria-label="Ta bort foto"
                 >
-                  ✕
+                  <svg width="10" height="10" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <path d="M2 2l10 10M12 2L2 12" />
+                  </svg>
                 </button>
               </div>
             ))}

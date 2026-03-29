@@ -26,7 +26,10 @@ export async function compressImage(file: File): Promise<{ base64: string; filen
 
   const blob = await canvas.convertToBlob({ type: 'image/jpeg', quality: QUALITY })
   const buffer = await blob.arrayBuffer()
-  const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)))
+  const bytes = new Uint8Array(buffer)
+  let binary = ''
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
+  const base64 = btoa(binary)
 
   const timestamp = Date.now()
   const safeName = file.name.replace(/\.[^.]+$/, '').replace(/[^a-z0-9-]/gi, '-').toLowerCase()

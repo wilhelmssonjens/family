@@ -135,7 +135,7 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
   const momentumIdRef = useRef<number | null>(null)
 
   // Focal-point zoom: adjusts scroll so the point stays stationary on screen
-  const applyZoomAtPointRef = useRef<(newZoom: number, fx: number, fy: number) => void>(() => {})
+  const applyZoomAtPointRef = useRef<(newZoom: number, fx: number, fy: number, syncUI?: boolean) => void>(() => {})
 
   // [C1] Use instant scroll (not smooth) — avoids fighting with CSS animation
   // [I2] Stop lingering momentum on navigation
@@ -162,7 +162,7 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
     const scrollParent: HTMLElement = sp
 
     // [C2] Zoom via ref — always current, no stale closure
-    function applyZoom(newZoom: number, fx: number, fy: number) {
+    function applyZoom(newZoom: number, fx: number, fy: number, syncUI = false) {
       const content = contentRef.current
       if (!content) return
       const oldZoom = zoomRef.current
@@ -171,13 +171,14 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
       const ratio = clamped / oldZoom
       const newSL = (scrollParent.scrollLeft + fx) * ratio - fx
       const newST = (scrollParent.scrollTop + fy) * ratio - fy
+      // All DOM ops synchronous — no React re-render during gesture
       zoomRef.current = clamped
       content.style.transformOrigin = '0 0'
       content.style.transform = clamped !== 1 ? `scale(${clamped})` : ''
       scrollParent.scrollLeft = Math.max(0, newSL)
       scrollParent.scrollTop = Math.max(0, newST)
-      // [I4] Always sync UI state
-      setZoomUI(clamped)
+      // Only sync React state when explicitly requested (gesture end / button click)
+      if (syncUI) setZoomUI(clamped)
     }
     applyZoomAtPointRef.current = applyZoom
 
@@ -265,9 +266,11 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
     function onTouchEnd(e: TouchEvent) {
       if (e.touches.length === 0) {
         if (isPanning && lastTouch && Date.now() - lastTouch.t < 80) startMomentum()
+        setZoomUI(zoomRef.current) // sync UI after all fingers lifted
         panStart = null; isPanning = false; lastTouch = null; pinchRef.current = null
       } else if (e.touches.length === 1) {
         // One finger remaining after pinch — seamlessly continue as pan
+        setZoomUI(zoomRef.current) // sync UI after pinch ends
         pinchRef.current = null
         initPanFromTouch(e.touches[0])
       }
@@ -290,6 +293,7 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
     function onGestureEnd(e: Event) {
       e.preventDefault()
       usingSafariGestures = false
+      setZoomUI(zoomRef.current) // sync UI after gesture ends
     }
 
     // [S2] Desktop: Ctrl+wheel with deltaMode normalization
@@ -326,15 +330,15 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
 
   const zoomIn = useCallback(() => {
     const sp = containerRef.current?.parentElement
-    if (sp) applyZoomAtPointRef.current(zoomRef.current + ZOOM_STEP, sp.clientWidth / 2, sp.clientHeight / 2)
+    if (sp) applyZoomAtPointRef.current(zoomRef.current + ZOOM_STEP, sp.clientWidth / 2, sp.clientHeight / 2, true)
   }, [])
   const zoomOut = useCallback(() => {
     const sp = containerRef.current?.parentElement
-    if (sp) applyZoomAtPointRef.current(zoomRef.current - ZOOM_STEP, sp.clientWidth / 2, sp.clientHeight / 2)
+    if (sp) applyZoomAtPointRef.current(zoomRef.current - ZOOM_STEP, sp.clientWidth / 2, sp.clientHeight / 2, true)
   }, [])
   const zoomReset = useCallback(() => {
     const sp = containerRef.current?.parentElement
-    if (sp) applyZoomAtPointRef.current(1, sp.clientWidth / 2, sp.clientHeight / 2)
+    if (sp) applyZoomAtPointRef.current(1, sp.clientWidth / 2, sp.clientHeight / 2, true)
   }, [])
 
   const center = persons.find(p => p.id === centerId)

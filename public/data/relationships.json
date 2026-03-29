@@ -619,5 +619,11 @@
     "from": "margareta-persson",
     "to": "rune-persson-2",
     "status": "current"
+  },
+  {
+    "type": "partner",
+    "from": "pernilla-bjrk",
+    "to": "tomas-bjrk",
+    "status": "current"
   }
 ]

@@ -1242,5 +1242,21 @@
     "stories": [],
     "contactInfo": null,
     "familySide": "center"
+  },
+  {
+    "id": "svenne-ahlbck",
+    "firstName": "Svenne",
+    "lastName": "Ahlbäck",
+    "birthName": null,
+    "birthDate": null,
+    "birthPlace": "Örebro",
+    "deathDate": null,
+    "deathPlace": null,
+    "gender": "male",
+    "occupation": "Röntgenläkare",
+    "photos": [],
+    "stories": [],
+    "contactInfo": null,
+    "familySide": "center"
   }
 ]

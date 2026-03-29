@@ -10,7 +10,7 @@ import { AddRelativeModal, type AddRelativeData } from './components/AddForm/Add
 import { SearchView } from './components/Search/SearchView'
 import { GalleryView } from './components/Gallery/GalleryView'
 import type { Person, Relationship } from './types'
-import { buildFamilyGraph } from './utils/buildTree'
+import { buildFamilyGraph, getSiblings } from './utils/buildTree'
 import { getRelationLabel } from './utils/formatPerson'
 import { enqueueApiCall } from './utils/apiQueue'
 
@@ -122,6 +122,13 @@ function FamilyPage({ view }: { view: 'focused' | 'tree' }) {
           }
         }
         newRels.push({ type: 'sibling', from: anchorId, to: data.existingPersonId })
+        // Transitive: link new sibling with all existing siblings of anchor
+        const existingSiblings = getSiblings(graph, anchorId)
+        for (const sib of existingSiblings) {
+          if (sib.id !== data.existingPersonId) {
+            newRels.push({ type: 'sibling', from: sib.id, to: data.existingPersonId })
+          }
+        }
       }
       addRelationships(newRels)
 
@@ -172,6 +179,11 @@ function FamilyPage({ view }: { view: 'focused' | 'tree' }) {
           }
         }
         newRels.push({ type: 'sibling', from: anchorId, to: tempId })
+        // Transitive: link new sibling with all existing siblings of anchor
+        const existingSiblings = getSiblings(graph, anchorId)
+        for (const sib of existingSiblings) {
+          newRels.push({ type: 'sibling', from: sib.id, to: tempId })
+        }
       }
       addPerson(newPerson, newRels)
 

@@ -304,6 +304,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           addRelationIfNew(relationships, { type: 'parent', from: pr.from, to: existingPersonId })
         }
         addRelationIfNew(relationships, { type: 'sibling', from: relatedToId, to: existingPersonId })
+        // Transitive: link with all existing siblings of anchor
+        const existingSiblingIds = new Set<string>()
+        for (const r of relationships) {
+          if (r.type === 'sibling' && r.from === relatedToId && r.to !== existingPersonId) existingSiblingIds.add(r.to)
+          if (r.type === 'sibling' && r.to === relatedToId && r.from !== existingPersonId) existingSiblingIds.add(r.from)
+        }
+        for (const sibId of existingSiblingIds) {
+          addRelationIfNew(relationships, { type: 'sibling', from: sibId, to: existingPersonId })
+        }
       } else if (linkType === 'partner') {
         addRelationIfNew(relationships, { type: 'partner', from: relatedToId, to: existingPersonId, status: 'current' })
       }
@@ -368,6 +377,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           addRelationIfNew(relationships, { type: 'parent', from: pr.from, to: newId })
         }
         addRelationIfNew(relationships, { type: 'sibling', from: relatedToId, to: newId })
+        // Transitive: link new sibling with all existing siblings of anchor
+        const existingSiblingIds = new Set<string>()
+        for (const r of relationships) {
+          if (r.type === 'sibling' && r.from === relatedToId && r.to !== newId) existingSiblingIds.add(r.to)
+          if (r.type === 'sibling' && r.to === relatedToId && r.from !== newId) existingSiblingIds.add(r.from)
+        }
+        for (const sibId of existingSiblingIds) {
+          addRelationIfNew(relationships, { type: 'sibling', from: sibId, to: newId })
+        }
       } else if (relationType === 'partner') {
         addRelationIfNew(relationships, { type: 'partner', from: relatedToId, to: newId, status: 'current' })
       }

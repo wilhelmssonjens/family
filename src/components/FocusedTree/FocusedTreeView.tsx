@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef, useEffect, useCallback } from 'react'
+import { useMemo, useState, useRef, useEffect, useCallback, Fragment } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { PersonCard } from './PersonCard'
 import type { Person, Relationship } from '../../types'
@@ -32,10 +32,6 @@ function getFingerDistance(t1: Touch, t2: Touch) {
   return Math.sqrt(dx * dx + dy * dy)
 }
 
-/**
- * Collect the ancestor chain upward from a person.
- * Returns an array of couples (person + partner + siblings), oldest first.
- */
 interface AncestorEntry {
   person: Person
   partner: Person | null
@@ -43,31 +39,57 @@ interface AncestorEntry {
   partnerSiblings: Person[]
 }
 
+const MAX_ANCESTOR_GENS = 10
+
+/** Build an AncestorEntry for the parent-couple of a given person. */
+function buildParentEntry(personId: string, graph: FamilyGraph): AncestorEntry | null {
+  const parents = getParents(graph, personId)
+  if (parents.length === 0) return null
+
+  const p0 = parents[0]
+  const p1 = parents[1] ?? getPartners(graph, p0.id)[0] ?? null
+  return {
+    person: p0,
+    partner: p1,
+    personSiblings: getSiblings(graph, p0.id).filter(s => s.id !== p1?.id),
+    partnerSiblings: p1 ? getSiblings(graph, p1.id).filter(s => s.id !== p0.id) : [],
+  }
+}
+
 /**
- * Follow ONE parent line upward (always parents[0]).
- * Called twice — once for paternal, once for maternal — to cover both sides.
- * Deeper branches (e.g. great-grandmother's second parent) are intentionally
- * omitted to keep the focused view manageable.
+ * BFS ancestor collection — follows BOTH parent lines at every generation.
+ * Returns AncestorEntry[][] with oldest generation first.
  */
-function collectAncestorChain(personId: string, graph: FamilyGraph): AncestorEntry[] {
-  const chain: AncestorEntry[] = []
-  let currentId = personId
+function collectAncestorGenerations(startCouples: AncestorEntry[], graph: FamilyGraph): AncestorEntry[][] {
+  const generations: AncestorEntry[][] = []
+  let currentCouples = startCouples
 
-  while (true) {
-    const parents = getParents(graph, currentId)
-    if (parents.length === 0) break
+  for (let gen = 0; gen < MAX_ANCESTOR_GENS; gen++) {
+    const nextGen: AncestorEntry[] = []
+    const seen = new Set<string>()
 
-    const parent = parents[0]
-    const otherParent = parents[1] ?? null
-    const personSiblings = getSiblings(graph, parent.id).filter(s => s.id !== otherParent?.id)
-    const partnerSiblings = otherParent
-      ? getSiblings(graph, otherParent.id).filter(s => s.id !== parent.id)
-      : []
-    chain.push({ person: parent, partner: otherParent, personSiblings, partnerSiblings })
-    currentId = parent.id
+    for (const couple of currentCouples) {
+      const idsToLookUp = [couple.person.id]
+      if (couple.partner) idsToLookUp.push(couple.partner.id)
+
+      for (const id of idsToLookUp) {
+        const entry = buildParentEntry(id, graph)
+        if (!entry) continue
+        const key = entry.partner
+          ? [entry.person.id, entry.partner.id].sort().join('\0')
+          : entry.person.id
+        if (seen.has(key)) continue
+        seen.add(key)
+        nextGen.push(entry)
+      }
+    }
+
+    if (nextGen.length === 0) break
+    generations.push(nextGen)
+    currentCouples = nextGen
   }
 
-  return chain.reverse() // oldest first
+  return generations.reverse()
 }
 
 /**
@@ -368,35 +390,11 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
     getSiblings(graph, p.id).filter(s => s.id !== centerId)
   )
 
-  // Collect ancestors for each parent separately (both sides)
+  // Collect ancestors — BFS following BOTH parent lines at every generation
   const parents = getParents(graph, centerId)
-  const parentPairs: AncestorEntry[] = []
-  if (parents.length >= 2) {
-    const p0partner = getPartners(graph, parents[0].id).find(p => p.id === parents[1].id) ? parents[1] : null
-    if (p0partner) {
-      parentPairs.push({
-        person: parents[0],
-        partner: p0partner,
-        personSiblings: getSiblings(graph, parents[0].id).filter(s => s.id !== p0partner.id),
-        partnerSiblings: getSiblings(graph, parents[1].id).filter(s => s.id !== parents[0].id),
-      })
-    } else {
-      const p0 = getPartners(graph, parents[0].id)[0] ?? null
-      const p1 = getPartners(graph, parents[1].id)[0] ?? null
-      parentPairs.push({ person: parents[0], partner: p0, personSiblings: getSiblings(graph, parents[0].id).filter(s => s.id !== p0?.id), partnerSiblings: p0 ? getSiblings(graph, p0.id).filter(s => s.id !== parents[0].id) : [] })
-      parentPairs.push({ person: parents[1], partner: p1, personSiblings: getSiblings(graph, parents[1].id).filter(s => s.id !== p1?.id), partnerSiblings: p1 ? getSiblings(graph, p1.id).filter(s => s.id !== parents[1].id) : [] })
-    }
-  } else if (parents.length === 1) {
-    const p0 = getPartners(graph, parents[0].id)[0] ?? null
-    parentPairs.push({ person: parents[0], partner: p0, personSiblings: getSiblings(graph, parents[0].id).filter(s => s.id !== p0?.id), partnerSiblings: p0 ? getSiblings(graph, p0.id).filter(s => s.id !== parents[0].id) : [] })
-  }
-
-  // Build two ancestor lines (paternal + maternal)
-  const paternalChain = parents[0] ? collectAncestorChain(parents[0].id, graph) : []
-  const maternalChain = parents[1] ? collectAncestorChain(parents[1].id, graph) : []
-
-  // Merge chains into rows: zip the two chains, longest first
-  const maxChainLen = Math.max(paternalChain.length, maternalChain.length)
+  const parentEntry = parents.length > 0 ? buildParentEntry(centerId, graph) : null
+  const parentPairs: AncestorEntry[] = parentEntry ? [parentEntry] : []
+  const ancestorGenerations = collectAncestorGenerations(parentPairs, graph)
 
   // Descendants: center's children + grandchildren (max 2 gen)
   const descendantGens = collectDescendantGens(centerId, graph, partners, siblings.map(s => s.id), MAX_DESCENDANT_GENS)
@@ -442,34 +440,23 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
         style={{ padding: `${CARD_PADDING_V}px ${CARD_PADDING_H}px`, transform: 'scale(1)', transformOrigin: '0 0', willChange: 'transform' }}
       >
 
-        {/* === ANCESTORS (slim: just couples, no siblings) === */}
-        {Array.from({ length: maxChainLen }).map((_, i) => {
-          const patIdx = i - (maxChainLen - paternalChain.length)
-          const matIdx = i - (maxChainLen - maternalChain.length)
-          const patCouple = patIdx >= 0 ? paternalChain[patIdx] : null
-          const matCouple = matIdx >= 0 ? maternalChain[matIdx] : null
-
-          return (
-            <div key={`anc-${i}`} className="flex flex-col items-center gap-1">
-              {i > 0 && <div className="w-px h-2 sm:h-4 bg-card-border/30" />}
-              <div className="flex items-center gap-8">
-                {patCouple && (
+        {/* === ANCESTORS (BFS — all branches, oldest first) === */}
+        {ancestorGenerations.map((genCouples, genIdx) => (
+          <div key={`anc-gen-${genIdx}`} className="flex flex-col items-center gap-1">
+            {genIdx > 0 && <div className="w-px h-2 sm:h-4 bg-card-border/30" />}
+            <div className="flex items-center gap-8">
+              {genCouples.map((couple, coupleIdx) => (
+                <Fragment key={couple.person.id}>
+                  {coupleIdx > 0 && <div className="w-4" />}
                   <AncestorRowWithSiblings
-                    couple={patCouple}
+                    couple={couple}
                     cardProps={cardProps}
                   />
-                )}
-                {matCouple && patCouple && <div className="w-4" />}
-                {matCouple && (
-                  <AncestorRowWithSiblings
-                    couple={matCouple}
-                    cardProps={cardProps}
-                  />
-                )}
-              </div>
+                </Fragment>
+              ))}
             </div>
-          )
-        })}
+          </div>
+        ))}
 
         {/* Parents row (with siblings) */}
         {parentPairs.length > 0 && (

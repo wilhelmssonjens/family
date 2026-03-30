@@ -108,11 +108,11 @@ Connector-data kommer direkt från `PositionedFamilyConnectorV3` i layoutresulta
 
 ### Synlighetsregler (FocusedTreeView)
 
-FocusedTreeView visar **blodlinjen + syskon** i varje generation:
-- **Ancestors:** Varje förfader i den raka linjen + deras syskon (men inte syskonens partners)
+FocusedTreeView visar **alla ancestor-grenar + syskon** i varje generation:
+- **Ancestors:** BFS uppåt — följer BÅDA föräldralinjer vid varje generation. `buildParentEntry()` skapar par, `collectAncestorGenerations()` samlar alla generationer. Dedup via sorterad par-ID-nyckel. Max 10 generationer.
 - **Center-rad:** Centerperson + partners + center's syskon + partners syskon
 - **Descendants:** Center's barn + center's syskons barn (syskonbarn) + barnbarn
-- **Visas ej:** Partners föräldrar/syskon, syskonens partners
+- **Visas ej:** Syskonens partners
 
 ### Interaktionsmodell (FocusedTreeView)
 

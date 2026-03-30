@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef, useEffect, useCallback } from 'react'
+import { useMemo, useState, useRef, useEffect, useCallback, Fragment } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { PersonCard } from './PersonCard'
 import type { Person, Relationship } from '../../types'
@@ -32,101 +32,64 @@ function getFingerDistance(t1: Touch, t2: Touch) {
   return Math.sqrt(dx * dx + dy * dy)
 }
 
+interface AncestorEntry {
+  person: Person
+  partner: Person | null
+  personSiblings: Person[]
+  partnerSiblings: Person[]
+}
+
 const MAX_ANCESTOR_GENS = 10
 
-/** Get parent couple for a person. Returns null if no parents. */
-function getParentCouple(personId: string, graph: FamilyGraph): { person: Person; partner: Person | null } | null {
+/** Build an AncestorEntry for the parent-couple of a given person. */
+function buildParentEntry(personId: string, graph: FamilyGraph): AncestorEntry | null {
   const parents = getParents(graph, personId)
   if (parents.length === 0) return null
+
   const p0 = parents[0]
   const p1 = parents[1] ?? getPartners(graph, p0.id)[0] ?? null
-  return { person: p0, partner: p1 }
+  return {
+    person: p0,
+    partner: p1,
+    personSiblings: getSiblings(graph, p0.id).filter(s => s.id !== p1?.id),
+    partnerSiblings: p1 ? getSiblings(graph, p1.id).filter(s => s.id !== p0.id) : [],
+  }
 }
 
 /**
- * Render a person with their siblings, with their parents' CoupleBranch centered above.
- * side='left': siblings first, person last (closest to + sign)
- * side='right': person first, siblings after
+ * BFS ancestor collection — follows BOTH parent lines at every generation.
+ * Returns AncestorEntry[][] with oldest generation first.
  */
-function PersonWithAncestors({ person, graph, cardProps, depth, side, excludeFromSiblings }: {
-  person: Person
-  graph: FamilyGraph
-  cardProps: CardPropsFn
-  depth: number
-  side: 'left' | 'right'
-  excludeFromSiblings?: string
-}) {
-  const siblings = getSiblings(graph, person.id).filter(s => s.id !== excludeFromSiblings)
-  const parentCouple = depth < MAX_ANCESTOR_GENS ? getParentCouple(person.id, graph) : null
+function collectAncestorGenerations(startCouples: AncestorEntry[], graph: FamilyGraph): AncestorEntry[][] {
+  const generations: AncestorEntry[][] = []
+  let currentCouples = startCouples
 
-  return (
-    <div className="flex flex-col items-center gap-1">
-      {parentCouple && (
-        <>
-          <CoupleBranch
-            person={parentCouple.person}
-            partner={parentCouple.partner}
-            graph={graph}
-            cardProps={cardProps}
-            depth={depth + 1}
-          />
-          <div className="w-px h-2 sm:h-4 bg-card-border/30" />
-        </>
-      )}
-      <div className="flex items-center gap-1.5 sm:gap-3">
-        {side === 'left' ? (
-          <>
-            {siblings.map(sib => (
-              <PersonCard key={sib.id} person={sib} {...cardProps(sib.id)} />
-            ))}
-            <PersonCard person={person} {...cardProps(person.id)} />
-          </>
-        ) : (
-          <>
-            <PersonCard person={person} {...cardProps(person.id)} />
-            {siblings.map(sib => (
-              <PersonCard key={sib.id} person={sib} {...cardProps(sib.id)} />
-            ))}
-          </>
-        )}
-      </div>
-    </div>
-  )
-}
+  for (let gen = 0; gen < MAX_ANCESTOR_GENS; gen++) {
+    const nextGen: AncestorEntry[] = []
+    const seen = new Set<string>()
 
-/** Render a couple: two PersonWithAncestors side by side with + between */
-function CoupleBranch({ person, partner, graph, cardProps, depth }: {
-  person: Person
-  partner: Person | null
-  graph: FamilyGraph
-  cardProps: CardPropsFn
-  depth: number
-}) {
-  return (
-    <div className="flex items-end">
-      <PersonWithAncestors
-        person={person}
-        graph={graph}
-        cardProps={cardProps}
-        depth={depth}
-        side="left"
-        excludeFromSiblings={partner?.id}
-      />
-      {partner && (
-        <>
-          <span className="text-accent/50 font-sans text-lg px-1 sm:px-2 self-end pb-2">+</span>
-          <PersonWithAncestors
-            person={partner}
-            graph={graph}
-            cardProps={cardProps}
-            depth={depth}
-            side="right"
-            excludeFromSiblings={person.id}
-          />
-        </>
-      )}
-    </div>
-  )
+    for (const couple of currentCouples) {
+      const idsToLookUp = [couple.person.id]
+      if (couple.partner) idsToLookUp.push(couple.partner.id)
+
+      for (const id of idsToLookUp) {
+        const entry = buildParentEntry(id, graph)
+        if (!entry) continue
+        const key = entry.partner
+          ? [entry.person.id, entry.partner.id].sort().join('\0')
+          : entry.person.id
+        if (seen.has(key)) continue
+        seen.add(key)
+        nextGen.push(entry)
+      }
+    }
+
+    if (nextGen.length === 0) break
+    generations.push(nextGen)
+    currentCouples = nextGen
+  }
+
+  return generations.reverse()
 }
 
 /**
@@ -427,9 +390,11 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
     getSiblings(graph, p.id).filter(s => s.id !== centerId)
   )
 
-  // Center's parent couple (entry point for recursive ancestor branches)
+  // Collect ancestors — BFS following BOTH parent lines at every generation
   const parents = getParents(graph, centerId)
-  const parentCouple = parents.length > 0 ? getParentCouple(centerId, graph) : null
+  const parentEntry = parents.length > 0 ? buildParentEntry(centerId, graph) : null
+  const parentPairs: AncestorEntry[] = parentEntry ? [parentEntry] : []
+  const ancestorGenerations = collectAncestorGenerations(parentPairs, graph)
 
   // Descendants: center's children + grandchildren (max 2 gen)
   const descendantGens = collectDescendantGens(centerId, graph, partners, siblings.map(s => s.id), MAX_DESCENDANT_GENS)
@@ -475,15 +440,38 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
         style={{ padding: `${CARD_PADDING_V}px ${CARD_PADDING_H}px`, transform: 'scale(1)', transformOrigin: '0 0', willChange: 'transform' }}
       >
 
-        {/* === ANCESTORS (recursive — each person with siblings, parents centered above) === */}
-        {parentCouple && (
-          <CoupleBranch
-            person={parentCouple.person}
-            partner={parentCouple.partner}
-            graph={graph}
-            cardProps={cardProps}
-            depth={0}
-          />
+        {/* === ANCESTORS (BFS — all branches, oldest first) === */}
+        {ancestorGenerations.map((genCouples, genIdx) => (
+          <div key={`anc-gen-${genIdx}`} className="flex flex-col items-center gap-1">
+            {genIdx > 0 && <div className="w-px h-2 sm:h-4 bg-card-border/30" />}
+            <div className="flex items-center gap-8">
+              {genCouples.map((couple, coupleIdx) => (
+                <Fragment key={couple.person.id}>
+                  {coupleIdx > 0 && <div className="w-4" />}
+                  <AncestorRowWithSiblings
+                    couple={couple}
+                    cardProps={cardProps}
+                  />
+                </Fragment>
+              ))}
+            </div>
+          </div>
+        ))}
+
+        {/* Parents row (with siblings) */}
+        {parentPairs.length > 0 && (
+          <>
+            <div className="w-px h-2 sm:h-4 bg-card-border/30" />
+            <div className="flex items-center gap-8">
+              {parentPairs.map((pp) => (
+                <AncestorRowWithSiblings
+                  key={pp.person.id}
+                  couple={pp}
+                  cardProps={cardProps}
+                />
+              ))}
+            </div>
+          </>
         )}
 
         {/* Connector to center */}
@@ -610,3 +598,39 @@ type CardPropsFn = (id: string, isCenter?: boolean) => {
   onAddRelative: () => void
 }
 
+/** Render an ancestor couple with person's siblings on the left and partner's on the right */
+function AncestorRowWithSiblings({ couple, cardProps }: {
+  couple: AncestorEntry
+  cardProps: CardPropsFn
+}) {
+  return (
+    <div className="flex items-center gap-1.5 sm:gap-3">
+      {couple.personSiblings.map(sib => (
+        <PersonCard key={sib.id} person={sib} {...cardProps(sib.id)} />
+      ))}
+      <CoupleRow person={couple.person} partner={couple.partner} cardProps={cardProps} />
+      {couple.partnerSiblings.map(sib => (
+        <PersonCard key={sib.id} person={sib} {...cardProps(sib.id)} />
+      ))}
+    </div>
+  )
+}
+
+/** Render a couple (person + optional partner) as a compact row */
+function CoupleRow({ person, partner, cardProps }: {
+  person: Person
+  partner: Person | null
+  cardProps: CardPropsFn
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <PersonCard person={person} {...cardProps(person.id)} />
+      {partner && (
+        <>
+          <span className="text-accent/50 font-sans text-lg">+</span>
+          <PersonCard person={partner} {...cardProps(partner.id)} />
+        </>
+      )}
+    </div>
+  )
+}

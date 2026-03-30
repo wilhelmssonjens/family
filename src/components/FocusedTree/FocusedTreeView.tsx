@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef, useEffect, useCallback, Fragment } from 'react'
+import { useMemo, useState, useRef, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { PersonCard } from './PersonCard'
 import type { Person, Relationship } from '../../types'
@@ -56,40 +56,54 @@ function buildParentEntry(personId: string, graph: FamilyGraph): AncestorEntry |
   }
 }
 
-/**
- * BFS ancestor collection — follows BOTH parent lines at every generation.
- * Returns AncestorEntry[][] with oldest generation first.
- */
-function collectAncestorGenerations(startCouples: AncestorEntry[], graph: FamilyGraph): AncestorEntry[][] {
-  const generations: AncestorEntry[][] = []
-  let currentCouples = startCouples
+/** Recursive ancestor branch — centers parents above their children via flexbox nesting */
+function AncestorBranch({ couple, graph, cardProps, depth, seen }: {
+  couple: AncestorEntry
+  graph: FamilyGraph
+  cardProps: CardPropsFn
+  depth: number
+  seen: Set<string>
+}) {
+  // Find parent couples for both person and partner
+  const parentCouples: AncestorEntry[] = []
+  if (depth < MAX_ANCESTOR_GENS) {
+    const idsToLookUp = [couple.person.id]
+    if (couple.partner) idsToLookUp.push(couple.partner.id)
 
-  for (let gen = 0; gen < MAX_ANCESTOR_GENS; gen++) {
-    const nextGen: AncestorEntry[] = []
-    const seen = new Set<string>()
-
-    for (const couple of currentCouples) {
-      const idsToLookUp = [couple.person.id]
-      if (couple.partner) idsToLookUp.push(couple.partner.id)
-
-      for (const id of idsToLookUp) {
-        const entry = buildParentEntry(id, graph)
-        if (!entry) continue
-        const key = entry.partner
-          ? [entry.person.id, entry.partner.id].sort().join('\0')
-          : entry.person.id
-        if (seen.has(key)) continue
-        seen.add(key)
-        nextGen.push(entry)
-      }
+    for (const id of idsToLookUp) {
+      const entry = buildParentEntry(id, graph)
+      if (!entry) continue
+      const key = entry.partner
+        ? [entry.person.id, entry.partner.id].sort().join('\0')
+        : entry.person.id
+      if (seen.has(key)) continue
+      seen.add(key)
+      parentCouples.push(entry)
     }
-
-    if (nextGen.length === 0) break
-    generations.push(nextGen)
-    currentCouples = nextGen
   }
 
-  return generations.reverse()
+  return (
+    <div className="flex flex-col items-center gap-1">
+      {parentCouples.length > 0 && (
+        <>
+          <div className="flex items-end gap-8">
+            {parentCouples.map(pc => (
+              <AncestorBranch
+                key={pc.person.id}
+                couple={pc}
+                graph={graph}
+                cardProps={cardProps}
+                depth={depth + 1}
+                seen={seen}
+              />
+            ))}
+          </div>
+          <div className="w-px h-2 sm:h-4 bg-card-border/30" />
+        </>
+      )}
+      <AncestorRowWithSiblings couple={couple} cardProps={cardProps} />
+    </div>
+  )
 }
 
 /**
@@ -390,11 +404,10 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
     getSiblings(graph, p.id).filter(s => s.id !== centerId)
   )
 
-  // Collect ancestors — BFS following BOTH parent lines at every generation
+  // Collect center's parent couple (seed for recursive ancestor branches)
   const parents = getParents(graph, centerId)
   const parentEntry = parents.length > 0 ? buildParentEntry(centerId, graph) : null
   const parentPairs: AncestorEntry[] = parentEntry ? [parentEntry] : []
-  const ancestorGenerations = collectAncestorGenerations(parentPairs, graph)
 
   // Descendants: center's children + grandchildren (max 2 gen)
   const descendantGens = collectDescendantGens(centerId, graph, partners, siblings.map(s => s.id), MAX_DESCENDANT_GENS)
@@ -440,34 +453,18 @@ export function FocusedTreeView({ persons, relationships, centerId, onPersonClic
         style={{ padding: `${CARD_PADDING_V}px ${CARD_PADDING_H}px`, transform: 'scale(1)', transformOrigin: '0 0', willChange: 'transform' }}
       >
 
-        {/* === ANCESTORS (BFS — all branches, oldest first) === */}
-        {ancestorGenerations.map((genCouples, genIdx) => (
-          <div key={`anc-gen-${genIdx}`} className="flex flex-col items-center gap-1">
-            {genIdx > 0 && <div className="w-px h-2 sm:h-4 bg-card-border/30" />}
-            <div className="flex items-center gap-8">
-              {genCouples.map((couple, coupleIdx) => (
-                <Fragment key={couple.person.id}>
-                  {coupleIdx > 0 && <div className="w-4" />}
-                  <AncestorRowWithSiblings
-                    couple={couple}
-                    cardProps={cardProps}
-                  />
-                </Fragment>
-              ))}
-            </div>
-          </div>
-        ))}
-
-        {/* Parents row (with siblings) */}
+        {/* === ANCESTORS (recursive branches — parents centered above children) === */}
         {parentPairs.length > 0 && (
           <>
-            <div className="w-px h-2 sm:h-4 bg-card-border/30" />
-            <div className="flex items-center gap-8">
-              {parentPairs.map((pp) => (
-                <AncestorRowWithSiblings
+            <div className="flex items-end gap-8">
+              {parentPairs.map(pp => (
+                <AncestorBranch
                   key={pp.person.id}
                   couple={pp}
+                  graph={graph}
                   cardProps={cardProps}
+                  depth={0}
+                  seen={new Set()}
                 />
               ))}
             </div>

@@ -83,25 +83,38 @@ function AncestorBranch({ couple, graph, cardProps, depth, seen }: {
   }
 
   return (
-    <div className="flex flex-col items-center gap-1">
-      {parentCouples.length > 0 && (
-        <>
-          <div className="flex items-end gap-8">
-            {parentCouples.map(pc => (
-              <AncestorBranch
-                key={pc.person.id}
-                couple={pc}
-                graph={graph}
-                cardProps={cardProps}
-                depth={depth + 1}
-                seen={seen}
-              />
-            ))}
-          </div>
-          <div className="w-px h-2 sm:h-4 bg-card-border/30" />
-        </>
-      )}
-      <AncestorRowWithSiblings couple={couple} cardProps={cardProps} />
+    <div className="flex items-end gap-1.5 sm:gap-3">
+      {/* Person's siblings — outside centering column */}
+      {couple.personSiblings.map(sib => (
+        <PersonCard key={sib.id} person={sib} {...cardProps(sib.id)} />
+      ))}
+
+      {/* Central column: ancestors centered above couple */}
+      <div className="flex flex-col items-center gap-1">
+        {parentCouples.length > 0 && (
+          <>
+            <div className="flex items-end gap-6 sm:gap-8">
+              {parentCouples.map(pc => (
+                <AncestorBranch
+                  key={pc.person.id}
+                  couple={pc}
+                  graph={graph}
+                  cardProps={cardProps}
+                  depth={depth + 1}
+                  seen={seen}
+                />
+              ))}
+            </div>
+            <div className="w-px h-2 sm:h-4 bg-card-border/30" />
+          </>
+        )}
+        <CoupleRow person={couple.person} partner={couple.partner} cardProps={cardProps} />
+      </div>
+
+      {/* Partner's siblings — outside centering column */}
+      {couple.partnerSiblings.map(sib => (
+        <PersonCard key={sib.id} person={sib} {...cardProps(sib.id)} />
+      ))}
     </div>
   )
 }
@@ -593,24 +606,6 @@ type CardPropsFn = (id: string, isCenter?: boolean) => {
   onNavigate: (() => void) | undefined
   onShowInfo: () => void
   onAddRelative: () => void
-}
-
-/** Render an ancestor couple with person's siblings on the left and partner's on the right */
-function AncestorRowWithSiblings({ couple, cardProps }: {
-  couple: AncestorEntry
-  cardProps: CardPropsFn
-}) {
-  return (
-    <div className="flex items-center gap-1.5 sm:gap-3">
-      {couple.personSiblings.map(sib => (
-        <PersonCard key={sib.id} person={sib} {...cardProps(sib.id)} />
-      ))}
-      <CoupleRow person={couple.person} partner={couple.partner} cardProps={cardProps} />
-      {couple.partnerSiblings.map(sib => (
-        <PersonCard key={sib.id} person={sib} {...cardProps(sib.id)} />
-      ))}
-    </div>
-  )
 }
 
 /** Render a couple (person + optional partner) as a compact row */

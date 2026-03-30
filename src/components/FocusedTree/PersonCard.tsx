@@ -96,7 +96,7 @@ export function PersonCard({ person, isCenter, isExpanded, onExpand, onNavigate,
                     <rect x="3" y="3" width="10" height="10" rx="2" /><path d="M10 7h5.5a1.5 1.5 0 0 1 1.5 1.5V17" /><polyline points="13 14 17 17 17 14" />
                   </svg>
                 </span>
-                <span className="font-sans text-[9px] sm:text-[10px] text-text-secondary leading-tight">Träd</span>
+                <span className="font-sans text-[9px] sm:text-[10px] text-text-secondary leading-tight text-center">Visa<br />släktträd</span>
               </button>
             )}
             <button
@@ -123,7 +123,7 @@ export function PersonCard({ person, isCenter, isExpanded, onExpand, onNavigate,
                   <circle cx="8" cy="7" r="3.5" /><path d="M2 17c0-3.3 2.7-6 6-6s6 2.7 6 6" /><line x1="16" y1="8" x2="16" y2="14" /><line x1="13" y1="11" x2="19" y2="11" />
                 </svg>
               </span>
-              <span className="font-sans text-[9px] sm:text-[10px] text-text-secondary leading-tight">Lägg till</span>
+              <span className="font-sans text-[9px] sm:text-[10px] text-text-secondary leading-tight text-center">Lägg till<br />släkting</span>
             </button>
           </div>
         </div>

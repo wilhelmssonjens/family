@@ -57,7 +57,7 @@
 }
 
 .card-flip-inner.flipped {
-  transform: rotateY(180deg) scale(1.3);
+  transform: rotateY(180deg) scale(1.15);
 }
 
 .card-face {

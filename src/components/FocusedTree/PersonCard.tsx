@@ -77,12 +77,11 @@ export function PersonCard({ person, isCenter, isExpanded, onExpand, onNavigate,
         </div>
 
         {/* === BACK FACE (action buttons — horizontal icon row) === */}
-        <div
-          className={`
-            card-face-back absolute inset-0 flex items-center justify-center
-            rounded-xl border sm:border-2 border-accent bg-card-bg shadow-lg ${sizeClasses}
-          `}
-        >
+        <div className="card-face-back absolute inset-0">
+          <div className={`
+            absolute inset-y-0 -inset-x-3 flex items-center justify-center
+            rounded-xl border sm:border-2 border-accent bg-card-bg shadow-lg
+          `}>
           <div className={`flex items-start ${isCenter ? 'gap-3' : 'gap-2'} justify-center`}>
             {!isCenter && onNavigate && (
               <button
@@ -125,6 +124,7 @@ export function PersonCard({ person, isCenter, isExpanded, onExpand, onNavigate,
               </span>
               <span className="font-sans text-[9px] sm:text-[10px] text-text-secondary leading-tight text-center">Lägg till<br />släkting</span>
             </button>
+          </div>
           </div>
         </div>
       </div>

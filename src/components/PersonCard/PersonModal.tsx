@@ -56,6 +56,8 @@ export function PersonModal({ person, relationLabel, onClose, onSave, onDelete, 
 
   // Flatten stories into a single text block for display
   const notesText = form.stories.map(s => [s.title, s.text].filter(Boolean).join(': ')).join('\n\n')
+  const [notesDraft, setNotesDraft] = useState(notesText)
+  const notesFocused = useRef(false)
 
   // text-base (16px) prevents Safari auto-zoom on input focus
   const inputClass = 'w-full px-2 py-1.5 text-base font-sans border border-accent/60 rounded bg-white text-text-primary placeholder:text-text-secondary/50 focus:outline-none focus:border-accent'
@@ -215,7 +217,7 @@ export function PersonModal({ person, relationLabel, onClose, onSave, onDelete, 
         <div className="space-y-2 mb-5">
           <EditableDetailRow label="Födelsedatum" value={form.birthDate} onChange={(v) => updateField('birthDate', v)} placeholder="ÅÅÅÅ-MM-DD" validate={isValidDate} />
           <EditableDetailRow label="Födelseort" value={form.birthPlace} onChange={(v) => updateField('birthPlace', v)} />
-          <EditableDetailRow label="Födnamn" value={form.birthName} onChange={(v) => updateField('birthName', v)} placeholder="Om annat" />
+          <EditableDetailRow label="Födelsenamn" value={form.birthName} onChange={(v) => updateField('birthName', v)} placeholder="Om annat" />
           <EditableDetailRow label="Dödsdatum" value={form.deathDate} onChange={(v) => updateField('deathDate', v)} placeholder="ÅÅÅÅ-MM-DD" validate={isValidDate} />
           <EditableDetailRow label="Dödsort" value={form.deathPlace} onChange={(v) => updateField('deathPlace', v)} />
           <EditableDetailRow label="Yrke" value={form.occupation} onChange={(v) => updateField('occupation', v)} />
@@ -265,12 +267,17 @@ export function PersonModal({ person, relationLabel, onClose, onSave, onDelete, 
             className="w-full px-3 py-2 text-base font-sans border border-bg-secondary rounded-lg bg-white text-text-primary placeholder:text-text-secondary/50 focus:outline-none focus:border-accent resize-none"
             rows={3}
             placeholder="Skriv fritt — anekdoter, minnen, anteckningar..."
-            value={notesText}
+            value={notesFocused.current ? notesDraft : notesText}
+            onFocus={() => { notesFocused.current = true; setNotesDraft(notesText) }}
             onChange={(e) => {
               dirty.current = true
+              setNotesDraft(e.target.value)
+            }}
+            onBlur={() => {
+              notesFocused.current = false
               setForm(prev => ({
                 ...prev,
-                stories: [{ title: '', text: e.target.value }],
+                stories: [{ title: '', text: notesDraft }],
               }))
             }}
           />

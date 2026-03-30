@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from 'react'
 import { Modal } from '../Modal/Modal'
-import { formatLifespan, getInitials } from '../../utils/formatPerson'
+import { formatLifespan } from '../../utils/formatPerson'
 import { compressImage } from '../../utils/compressImage'
 import { isValidDate } from '../../utils/validateDate'
 import type { Person, Story } from '../../types'
@@ -51,7 +51,6 @@ export function PersonModal({ person, relationLabel, onClose, onSave, onDelete, 
     photos: [...person.photos],
   })
 
-  const initials = getInitials(person.firstName, person.lastName)
   const lifespan = formatLifespan(person.birthDate, person.deathDate, person.birthPlace, person.deathPlace)
 
   // Flatten stories into a single text block for display
@@ -146,23 +145,66 @@ export function PersonModal({ person, relationLabel, onClose, onSave, onDelete, 
         {/* Header: photo + name (both tappable) */}
         <div className="flex items-start gap-3 sm:gap-4 mb-5">
           {/* Photo avatar — tap to upload */}
-          <div
-            className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-bg-secondary border-2 border-card-border flex items-center justify-center flex-shrink-0 overflow-hidden cursor-pointer group relative"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            {form.photos.length > 0 ? (
-              <img
-                src={photoSrc(form.photos[0])}
-                alt={person.firstName}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <span className="text-accent font-sans font-semibold text-xl sm:text-2xl">{initials}</span>
-            )}
-            {/* Camera overlay on hover */}
-            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 flex items-center justify-center transition-colors">
-              <span className="text-white/0 group-hover:text-white/90 text-lg transition-colors">+</span>
+          <div className="flex flex-col items-center gap-1.5 flex-shrink-0">
+            <div
+              className={`w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-bg-secondary flex items-center justify-center overflow-hidden cursor-pointer group relative
+                ${form.photos.length > 0 ? 'border-2 border-card-border' : 'border-2 border-dashed border-accent/50'}`}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {form.photos.length > 0 ? (
+                <img
+                  src={photoSrc(form.photos[0])}
+                  alt={person.firstName}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="flex flex-col items-center gap-0.5">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-accent/60">
+                    <rect x="3" y="5" width="18" height="14" rx="2" /><circle cx="12" cy="13" r="3" /><path d="M9 5l1-2h4l1 2" />
+                  </svg>
+                  <span className="text-accent/60 font-sans text-[9px]">Lägg till</span>
+                </div>
+              )}
+              {/* Camera overlay on hover (only when photo exists) */}
+              {form.photos.length > 0 && (
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 flex items-center justify-center transition-colors">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-white/0 group-hover:text-white/90 transition-colors">
+                    <rect x="3" y="5" width="18" height="14" rx="2" /><circle cx="12" cy="13" r="3" /><path d="M9 5l1-2h4l1 2" />
+                  </svg>
+                </div>
+              )}
             </div>
+            {uploading && <span className="text-[10px] font-sans text-text-secondary">Laddar upp...</span>}
+            {/* Extra photo thumbnails */}
+            {form.photos.length > 1 && (
+              <div className="flex gap-1">
+                {form.photos.slice(1).map((url, i) => (
+                  <div key={i} className="relative w-7 h-7 rounded overflow-hidden border border-bg-secondary">
+                    <img src={photoSrc(url)} alt="" className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); removePhoto(i + 1) }}
+                      className="absolute inset-0 bg-black/0 hover:bg-black/40 flex items-center justify-center transition-colors cursor-pointer"
+                      aria-label="Ta bort foto"
+                    >
+                      <svg width="8" height="8" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="text-white/0 hover:text-white">
+                        <path d="M2 2l10 10M12 2L2 12" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {/* Delete main photo link */}
+            {form.photos.length > 0 && (
+              <button
+                type="button"
+                onClick={() => removePhoto(0)}
+                className="text-[10px] font-sans text-red-400 hover:text-red-600 transition-colors cursor-pointer"
+              >
+                Ta bort foto
+              </button>
+            )}
           </div>
 
           {/* Name — tappable to edit inline */}
@@ -224,42 +266,6 @@ export function PersonModal({ person, relationLabel, onClose, onSave, onDelete, 
           <EditableDetailRow label="Kontakt" value={form.contactInfo} onChange={(v) => updateField('contactInfo', v)} />
         </div>
 
-        {/* Photos section — always visible */}
-        <div className="mb-5">
-          <h3 className="font-serif font-semibold text-text-primary text-sm mb-2">Foto</h3>
-          <div className="flex flex-wrap gap-2">
-            {form.photos.map((url, i) => (
-              <div key={i} className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-lg overflow-hidden border border-bg-secondary">
-                <img src={photoSrc(url)} alt="" className="w-full h-full object-cover" />
-                <button
-                  type="button"
-                  onClick={() => removePhoto(i)}
-                  className="absolute top-0 right-0 w-5 h-5 bg-red-600 text-white rounded-bl-lg flex items-center justify-center hover:bg-red-700 cursor-pointer"
-                  aria-label="Ta bort foto"
-                >
-                  <svg width="10" height="10" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                    <path d="M2 2l10 10M12 2L2 12" />
-                  </svg>
-                </button>
-              </div>
-            ))}
-            {/* Upload button */}
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-              className="w-14 h-14 sm:w-16 sm:h-16 rounded-lg border-2 border-dashed border-card-border/40 flex items-center justify-center
-                         text-text-secondary hover:border-accent hover:text-accent transition-colors cursor-pointer disabled:opacity-50"
-            >
-              {uploading ? (
-                <span className="text-xs font-sans">...</span>
-              ) : (
-                <span className="text-xl leading-none">+</span>
-              )}
-            </button>
-          </div>
-        </div>
-
         {/* Notes — single editable text field */}
         <div className="mb-5">
           <h3 className="font-serif font-semibold text-text-primary text-sm mb-2">Övrig information</h3>
@@ -296,7 +302,7 @@ export function PersonModal({ person, relationLabel, onClose, onSave, onDelete, 
               onClick={onNavigate}
               className="flex-1 text-sm font-sans bg-bg-secondary text-text-primary py-2 rounded-lg hover:bg-bg-secondary/70 transition-colors cursor-pointer"
             >
-              Visa i trädet
+              Visa släktträd
             </button>
           )}
         </div>

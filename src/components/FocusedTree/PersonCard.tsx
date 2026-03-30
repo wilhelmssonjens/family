@@ -79,32 +79,41 @@ export function PersonCard({ person, isCenter, isExpanded, onExpand, onNavigate,
         {/* === BACK FACE (action buttons) === */}
         <div
           className={`
-            card-face-back absolute inset-0 flex flex-col items-stretch justify-center gap-1.5 p-2
+            card-face-back absolute inset-0 flex flex-col items-stretch justify-center gap-1 p-1.5
             rounded-xl border sm:border-2 border-accent bg-card-bg shadow-lg ${sizeClasses}
           `}
         >
           {!isCenter && onNavigate && (
             <button
               onClick={(e) => { e.stopPropagation(); onNavigate() }}
-              className="bg-accent hover:bg-accent-dark text-white font-sans text-[11px] sm:text-xs font-medium
-                         py-1.5 px-2 rounded-lg transition-colors duration-150 cursor-pointer leading-tight"
+              className="flex items-center justify-center gap-1 bg-accent hover:bg-accent-dark text-white font-sans text-[11px] sm:text-xs font-medium
+                         py-1.5 px-1.5 rounded-lg transition-colors duration-150 cursor-pointer"
             >
-              Visa släktträd
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-3 h-3 shrink-0">
+                <circle cx="8" cy="8" r="3" /><line x1="8" y1="1" x2="8" y2="4" /><line x1="8" y1="12" x2="8" y2="15" /><line x1="1" y1="8" x2="4" y2="8" /><line x1="12" y1="8" x2="15" y2="8" />
+              </svg>
+              Släktträd
             </button>
           )}
           <button
             onClick={(e) => { e.stopPropagation(); onShowInfo?.() }}
-            className="bg-accent hover:bg-accent-dark text-white font-sans text-[11px] sm:text-xs font-medium
-                       py-1.5 px-2 rounded-lg transition-colors duration-150 cursor-pointer leading-tight"
+            className="flex items-center justify-center gap-1 bg-accent hover:bg-accent-dark text-white font-sans text-[11px] sm:text-xs font-medium
+                       py-1.5 px-1.5 rounded-lg transition-colors duration-150 cursor-pointer"
           >
-            Visa information
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-3 h-3 shrink-0">
+              <circle cx="8" cy="8" r="7" /><line x1="8" y1="7" x2="8" y2="11.5" /><circle cx="8" cy="4.5" r="0.5" fill="currentColor" stroke="none" />
+            </svg>
+            Info
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); onAddRelative?.() }}
-            className="bg-accent hover:bg-accent-dark text-white font-sans text-[11px] sm:text-xs font-medium
-                       py-1.5 px-2 rounded-lg transition-colors duration-150 cursor-pointer leading-tight"
+            className="flex items-center justify-center gap-1 bg-accent hover:bg-accent-dark text-white font-sans text-[11px] sm:text-xs font-medium
+                       py-1.5 px-1.5 rounded-lg transition-colors duration-150 cursor-pointer"
           >
-            Lägg till släkting
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-3 h-3 shrink-0">
+              <line x1="8" y1="2" x2="8" y2="14" /><line x1="2" y1="8" x2="14" y2="8" />
+            </svg>
+            Lägg till
           </button>
         </div>
       </div>

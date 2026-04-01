@@ -86,7 +86,7 @@
     "firstName": "Gunnar",
     "lastName": "Wilhelmsson",
     "birthName": null,
-    "birthDate": null,
+    "birthDate": "1922-12-01",
     "birthPlace": null,
     "deathDate": null,
     "deathPlace": null,

@@ -1021,22 +1021,6 @@
     "familySide": "jens"
   },
   {
-    "id": "svea-andersson",
-    "firstName": "Svea",
-    "lastName": "Andersson",
-    "birthName": null,
-    "birthDate": null,
-    "birthPlace": null,
-    "deathDate": null,
-    "deathPlace": null,
-    "gender": "female",
-    "occupation": null,
-    "photos": [],
-    "stories": [],
-    "contactInfo": null,
-    "familySide": "jens"
-  },
-  {
     "id": "oknd-andersson",
     "firstName": "Okänd",
     "lastName": "Andersson",
@@ -1054,22 +1038,6 @@
         "text": "Bodde i Knaperåsen banvaktarstuga"
       }
     ],
-    "contactInfo": null,
-    "familySide": "jens"
-  },
-  {
-    "id": "svea-andersson",
-    "firstName": "Svea",
-    "lastName": "Andersson?",
-    "birthName": null,
-    "birthDate": null,
-    "birthPlace": null,
-    "deathDate": null,
-    "deathPlace": null,
-    "gender": "female",
-    "occupation": null,
-    "photos": [],
-    "stories": [],
     "contactInfo": null,
     "familySide": "jens"
   },

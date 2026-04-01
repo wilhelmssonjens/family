@@ -463,11 +463,6 @@
   },
   {
     "type": "parent",
-    "from": "oknd-andersson",
-    "to": "svea-andersson"
-  },
-  {
-    "type": "parent",
     "from": "svea-1774537087620",
     "to": "brje-norstrm"
   },

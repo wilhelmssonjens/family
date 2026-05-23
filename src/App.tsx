@@ -7,6 +7,7 @@ import { FocusedTreeView } from './components/FocusedTree/FocusedTreeView'
 import { FamilyListView } from './components/FamilyList/FamilyListView'
 import { PersonModal, type EditPersonData } from './components/PersonCard/PersonModal'
 import { AddRelativeModal, type AddRelativeData } from './components/AddForm/AddRelativeModal'
+import { TreeContextBar } from './components/FocusedTree/TreeContextBar'
 import { SearchView } from './components/Search/SearchView'
 import { GalleryView } from './components/Gallery/GalleryView'
 import type { Person, Relationship } from './types'
@@ -16,6 +17,9 @@ import { enqueueApiCall } from './utils/apiQueue'
 
 // Config: set to true to require GitHub Issue approval, false for direct edits
 const REQUIRE_APPROVAL = false
+
+// The tree's "home" — the default center couple the app is built around
+const HOME_ID = 'jens'
 
 /**
  * Shared logic for pages that show person modals (focused view + full tree).
@@ -40,7 +44,7 @@ function FamilyPage({ view }: { view: 'focused' | 'tree' }) {
   )
   if (persons.length === 0) return <div className="flex-1 flex items-center justify-center font-sans text-text-secondary">Inga personer ännu</div>
 
-  const centerId = id ?? 'jens'
+  const centerId = id ?? HOME_ID
   const selectedPerson = persons.find(p => p.id === selectedPersonId)
 
   // Issue 3: on API error, reload data from server to restore truth
@@ -229,13 +233,26 @@ function FamilyPage({ view }: { view: 'focused' | 'tree' }) {
   return (
     <div className={`flex-1 relative ${view === 'focused' ? 'overflow-auto' : 'overflow-hidden'}`} style={view === 'focused' ? { touchAction: 'none' } : undefined}>
       {view === 'focused' ? (
-        <FocusedTreeView
-          persons={persons}
-          relationships={relationships}
-          centerId={centerId}
-          onPersonClick={(pid) => setSelectedPersonId(pid)}
-          onAddRelative={(pid) => { setSelectedPersonId(pid); setShowAddRelative(true) }}
-        />
+        <>
+          <TreeContextBar
+            persons={persons}
+            graph={graph}
+            centerId={centerId}
+            homeId={HOME_ID}
+            onNavigate={(pid) => {
+              setSelectedPersonId(null)
+              navigate(pid === HOME_ID ? '/' : `/person/${pid}`)
+            }}
+            onShowInfo={(pid) => setSelectedPersonId(pid)}
+          />
+          <FocusedTreeView
+            persons={persons}
+            relationships={relationships}
+            centerId={centerId}
+            onPersonClick={(pid) => setSelectedPersonId(pid)}
+            onAddRelative={(pid) => { setSelectedPersonId(pid); setShowAddRelative(true) }}
+          />
+        </>
       ) : (
         <TreeView
           persons={persons}

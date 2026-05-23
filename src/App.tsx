@@ -50,6 +50,16 @@ function FamilyPage({ view }: { view: 'focused' | 'tree' }) {
     reloadFromServer()
   }
 
+  const showSuccess = () => {
+    setSubmitStatus('success')
+    setTimeout(() => setSubmitStatus('idle'), 3000)
+  }
+
+  const closeAddRelative = () => {
+    setShowAddRelative(false)
+    setSelectedPersonId(null)
+  }
+
   const endpoint = REQUIRE_APPROVAL ? '/api/submit-contribution' : '/api/submit-direct'
 
   // Issue 6: handleEditSave does NOT close modal — PersonModal.handleClose does that
@@ -97,13 +107,26 @@ function FamilyPage({ view }: { view: 'focused' | 'tree' }) {
     }, showError)
   }
 
-  function handleAddRelative(data: AddRelativeData) {
+  function handleAddRelative(data: AddRelativeData): Promise<{ ok: boolean }> {
     const anchorId = selectedPersonId
     const anchorFamilySide = selectedPerson?.familySide ?? 'jens'
-    setShowAddRelative(false)
-    setSelectedPersonId(null)
 
-    if (!anchorId) return
+    if (!anchorId) return Promise.resolve({ ok: false })
+
+    const wrapApiCall = (fn: () => Promise<void>): Promise<{ ok: boolean }> =>
+      new Promise((resolve) => {
+        enqueueApiCall(
+          async () => {
+            await fn()
+            showSuccess()
+            resolve({ ok: true })
+          },
+          () => {
+            showError()
+            resolve({ ok: false })
+          },
+        )
+      })
 
     if (data.existingPersonId) {
       // Link existing person — optimistic local update
@@ -132,7 +155,7 @@ function FamilyPage({ view }: { view: 'focused' | 'tree' }) {
       }
       addRelationships(newRels)
 
-      enqueueApiCall(async () => {
+      return wrapApiCall(async () => {
         const res = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -144,7 +167,7 @@ function FamilyPage({ view }: { view: 'focused' | 'tree' }) {
           }),
         })
         if (!res.ok) throw new Error()
-      }, showError)
+      })
     } else {
       // Create new person — optimistic with temp ID
       const tempId = data.firstName.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now()
@@ -159,7 +182,7 @@ function FamilyPage({ view }: { view: 'focused' | 'tree' }) {
         deathPlace: data.deathPlace ?? null,
         gender: data.gender,
         occupation: data.occupation ?? null,
-        photos: [],
+        photos: data.photoUrl ? [data.photoUrl] : [],
         stories: data.story ? [{ title: 'Berättelse', text: data.story }] : [],
         contactInfo: null,
         familySide: anchorFamilySide,
@@ -188,7 +211,7 @@ function FamilyPage({ view }: { view: 'focused' | 'tree' }) {
       addPerson(newPerson, newRels)
 
       // Issue 13: replace temp ID with server-assigned permanent ID
-      enqueueApiCall(async () => {
+      return wrapApiCall(async () => {
         const res = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -199,7 +222,7 @@ function FamilyPage({ view }: { view: 'focused' | 'tree' }) {
         if (result.personId && result.personId !== tempId) {
           replacePersonId(tempId, result.personId)
         }
-      }, showError)
+      })
     }
   }
 
@@ -247,7 +270,7 @@ function FamilyPage({ view }: { view: 'focused' | 'tree' }) {
           relatedPersonId={selectedPerson.id}
           persons={persons}
           onSubmit={handleAddRelative}
-          onCancel={() => setShowAddRelative(false)}
+          onCancel={closeAddRelative}
         />
       )}
 

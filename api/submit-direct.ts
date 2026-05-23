@@ -347,7 +347,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       deathPlace: rest.deathPlace || null,
       gender: gender || 'other',
       occupation: rest.occupation || null,
-      photos: [],
+      photos: rest.photoUrl ? [rest.photoUrl] : [],
       stories: rest.story ? [{ title: 'Berättelse', text: rest.story }] : [],
       contactInfo: null,
       familySide: 'jens',
